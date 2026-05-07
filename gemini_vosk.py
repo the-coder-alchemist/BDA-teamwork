@@ -63,32 +63,17 @@ def save_to_csv(data):
             writer.writeheader()
         writer.writerow(data)
 
-def transcribe_file(file_path):
-    wf = wave.open(file_path, "rb")
-    recognizer = KaldiRecognizer(model, wf.getframerate())
-    while True:
-        data = wf.readframes(4000)
-        if len(data) == 0:
-            break
-        recognizer.AcceptWaveform(data)
-    
-    final_result = json.loads(recognizer.FinalResult())
-    duration = round(wf.getnframes() / wf.getframerate(), 2)
-    return final_result.get("text", ""), duration
-
 
 def main():
     print("Meeting Pipeline")
 
     while True:
-        mode = input("Choose mode: [F]ile, [R]ealtime or [Q]uit:").lower()
+        mode = input("Choose mode: [R]ecord or [Q]uit:").lower()
         if mode == 'q':
             break
-        if mode == 'r':
+        elif mode == 'r':
+            speaker = input("Who is speaking?")
             raw_text, duration = realtime_transcription()
-        elif mode == 'f':
-            path = input("Enter file path to .wav file:")
-            raw_text,duration = transcribe_file(path)
         else:
             continue
 
@@ -98,7 +83,8 @@ def main():
             "timestamp": datetime.now().isoformat(),
             "raw_text_vosk": raw_text,
             "text": correct_text,
-            "time_taken_sec": duration
+            "time_taken_sec": duration,
+            "name":speaker
             })
         print("Transcription complete")
 
