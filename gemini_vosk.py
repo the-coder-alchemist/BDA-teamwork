@@ -33,6 +33,7 @@ def realtime_transcription():
     
     recognizer = KaldiRecognizer(model,SAMPLE_RATE)
     start_time =time.time()
+    full_text = ""
    
     print("Recording ... Press Ctrl+C to finish.")
 
@@ -46,14 +47,22 @@ def realtime_transcription():
     ):
             while True:
                 data = q.get()
-                recognizer.AcceptWaveform(data)
+                if recognizer.AcceptWaveform(data):
+                    result = json.loads(recognizer.Result())
+                    text = result.get("text","")
+                    if text:
+                        full_text += text + " "
     
     except KeyboardInterrupt:
         print("\n Recording stopped")
     
     final_result = json.loads(recognizer.FinalResult())
+    final_text = final_result.get("text", "")
+    if final_text:
+        full_text += final_text
+
     duration = round(time.time()-start_time, 2)
-    return final_result.get("text",""), duration
+    return full_text.strip(), duration
 
 def save_to_csv(data):
     file_exists = os.path.exists(OUTPUT_CSV)
