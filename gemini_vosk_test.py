@@ -8,9 +8,10 @@ from datetime import datetime
 from vosk import Model, KaldiRecognizer
 import time
 import wave
+import pandas as pd
 
 #Configuring Models
-GEMINI_MODEL = "gemini-2.5-flash"
+GEMINI_MODEL = "gemini-2.0-flash-lite"
 VOSK_MODEL = "vosk-model-en-us-0.22-lgraph"
 SAMPLE_RATE = 16000
 OUTPUT_CSV = "group_transcript.csv"
@@ -24,9 +25,10 @@ def corrected_text(raw_text):
     response = client.models.generate_content(model = GEMINI_MODEL, contents = prompt)
     return response.text.strip()
 
+#Recording transcript
 def realtime_transcription():
     q = queue.Queue()
-    def callback(indata,frames,time,status): #start recording and transcribing
+    def callback(indata, frames, time, status): #start recording and transcribing
         if status:
             print(status)
         q.put(bytes(indata))
@@ -64,6 +66,7 @@ def realtime_transcription():
     duration = round(time.time()-start_time, 2)
     return full_text.strip(), duration
 
+#Write to csv
 def save_to_csv(data):
     file_exists = os.path.exists(OUTPUT_CSV)
     with open(OUTPUT_CSV, "a", newline="", encoding="utf-8") as f:
@@ -86,16 +89,21 @@ def main():
         else:
             continue
 
-        correct_text = corrected_text(raw_text)
-
         save_to_csv({
             "timestamp": datetime.now().isoformat(),
             "raw_text_vosk": raw_text,
-            "text": correct_text,
+            "text": "",
             "time_taken_sec": duration,
             "name":speaker
             })
         print("Transcription complete")
+    
+    transcript = pd.read_csv(OUTPUT_CSV)
+    for i, row in transcript.iterrows():
+        transcript.at[i, "text"] = corrected_text(row["raw_text_vosk"])
+    transcript.to_csv(OUTPUT_CSV, index=False)
+    print("All transcriptions corrected")
+
 
 if __name__ == "__main__":
     main()
