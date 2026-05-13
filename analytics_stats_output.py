@@ -6,16 +6,41 @@ def analyze_meeting_data(file_path):
     with open(file_path, 'r', encoding='utf-8') as file:
         reader = csv.DictReader(file)
         
-        # Variable to store total speaking time
-        total_time = 0
+        # Create empty dictionaries to store data
+        word_count = {}
+        speaking_time = {}
         
         # Loop through each row in the CSV
         for row in reader:
+            speaker = row['name']
+            words = int(row['num_words_in_text'])
             time_taken = float(row['time_taken_sec'])
             
-            # Add time to total
-            total_time = total_time + time_taken
+            # Add words for this speaker
+            if speaker in word_count:
+                word_count[speaker] += words
+            else:
+                word_count[speaker] = words
+            
+            
+            # Add speaking time for this speaker
+            if speaker in speaking_time:
+                speaking_time[speaker] += time_taken
+            else:
+                speaking_time[speaker] = time_taken
     
+    
+    
+    # Calculate total speaking time
+    total_time = 0
+    for speaker in speaking_time:
+        total_time += speaking_time[speaker]
+    
+    # Calculate average speaking time
+    num_speakers = len(speaking_time)
+    average_time = total_time / num_speakers
+
+
     # Print results
     print("=" * 50)
     print("Meeting Analytics Report")
@@ -23,7 +48,8 @@ def analyze_meeting_data(file_path):
     print()
     
     print("Total speaking time:", total_time, "seconds")
-    
+    print("Average speaking time per speaker:", round(average_time,2), "seconds")
+    print()
     print("=" * 50)
 
 
