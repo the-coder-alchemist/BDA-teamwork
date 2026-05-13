@@ -7,7 +7,7 @@ def validate_timestamp(value, field_name, row_num):
     try:
         datetime.fromisoformat(value)
         return True, None
-    except (ValueError, AttributeError):
+    except:
         return False, f"Row {row_num}: {field_name} '{value}' is not a valid datetime"
 
 
@@ -19,7 +19,7 @@ def validate_numeric_positive(value, field_name, row_num):
             return True, None
         else:
             return False, f"Row {row_num}: {field_name} '{value}' is not greater than 0"
-    except (ValueError, TypeError):
+    except:
         return False, f"Row {row_num}: {field_name} '{value}' is not numeric"
 
 
