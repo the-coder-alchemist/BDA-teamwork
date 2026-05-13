@@ -10,7 +10,9 @@ def analyze_meeting_data(file_path):
         word_count = {}
         question_count = {}
         speaking_time = {}
-        
+        speech_rate_total = {}
+        speech_rate_count = {}
+
         # Loop through each row in the CSV
         for row in reader:
             
@@ -32,7 +34,16 @@ def analyze_meeting_data(file_path):
                 speaking_time[row['name']] += float(row['time_taken_sec'])
             else:
                 speaking_time[row['name']] = float(row['time_taken_sec'])
-    
+
+            # Add speech rate to list for this speaker
+            if row['name'] in speech_rate_total:
+                speech_rate_total[row['name']] += float(row['speech_rate_wps'])
+                speech_rate_count[row['name']] += 1
+            else:
+                speech_rate_total[row['name']] = float(row['speech_rate_wps'])
+                speech_rate_count[row['name']] = 1
+
+
     # Find who spoke the most words
     most_words_speaker = ""
     most_words_count = 0
@@ -72,7 +83,13 @@ def analyze_meeting_data(file_path):
     print("Average speaking time per speaker:", round(average_time,2), "seconds")
     print("Most questions:", most_questions_speaker, "-", most_questions_count, "questions")
     print()
-    
+
+      # Calculate and print average speech rate for each speaker
+    for speaker in speech_rate_total:
+        average = speech_rate_total[speaker] / speech_rate_count[speaker]
+        print(speaker, "average speech rate:", round(average, 2), "words/second")
+    print()
+    print("=" * 50)
 
 def main():
     file_path = "group_transcript_enriched.csv"
