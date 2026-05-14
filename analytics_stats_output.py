@@ -55,7 +55,6 @@ def analyze_meeting_data(file_path):
     # Find who spoke the least words
     least_words_count = min(word_count.values())
     least_words_speaker = min(word_count, key=word_count.get)
-
     
     # Find who asked the most questions
     most_questions_speaker = ""
@@ -65,11 +64,20 @@ def analyze_meeting_data(file_path):
             most_questions_count = question_count[speaker]
             most_questions_speaker = speaker
     
-    
     # Calculate total speaking time
     total_time = 0
     for speaker in speaking_time:
         total_time += speaking_time[speaker]
+
+    # Calculate top 5 speakers by total time - using Bubble sort 
+    speaking_time_list = list(speaking_time.items()) #make the dict into a list of tuples for sorting
+    n = len(speaking_time_list)
+    for i in range(n):
+        for j in range(0,n-i-1):
+            if speaking_time_list[j][1] < speaking_time_list[j+1][1]: #compare the second element of the tuple (the time)
+                speaking_time_list[j], speaking_time_list[j+1] = speaking_time_list[j+1], speaking_time_list[j] #swap the tuples
+    sorted_speaking_time5 = speaking_time_list[:5]
+
     
     # Calculate average speaking time
     num_speakers = len(speaking_time)
@@ -87,6 +95,10 @@ def analyze_meeting_data(file_path):
     print("Total speaking time:", total_time, "seconds")
     print("Average speaking time per speaker:", round(average_time,2), "seconds")
     print("Most questions:", most_questions_speaker, "-", most_questions_count, "questions")
+    print()
+    print("Top 5 speakers by total time:")
+    for speaker, time in sorted_speaking_time5:
+        print(f"{speaker}: {time:.2f} seconds")
     print()
 
       # Calculate and print average speech rate for each speaker
