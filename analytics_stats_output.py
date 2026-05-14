@@ -31,9 +31,9 @@ def analyze_meeting_data(file_path):
             
             # Add speaking time for this speaker
             if row['name'] in speaking_time:
-                speaking_time[row['name']] += float(row['time_taken_sec'])
+                speaking_time[row['name']] += round(float(row['time_taken_sec']), 2)
             else:
-                speaking_time[row['name']] = float(row['time_taken_sec'])
+                speaking_time[row['name']] = round(float(row['time_taken_sec']), 2)
 
             # Add speech rate to list for this speaker
             if row['name'] in speech_rate_total:
@@ -51,7 +51,11 @@ def analyze_meeting_data(file_path):
         if word_count[speaker] > most_words_count:
             most_words_count = word_count[speaker]
             most_words_speaker = speaker
-    
+
+    # Find who spoke the least words
+    least_words_count = min(word_count.values())
+    least_words_speaker = min(word_count, key=word_count.get)
+
     
     # Find who asked the most questions
     most_questions_speaker = ""
@@ -79,6 +83,7 @@ def analyze_meeting_data(file_path):
     print()
     
     print("Most words:", most_words_speaker, "-", most_words_count, "words")
+    print("Least words:", least_words_speaker, "-", least_words_count, "words")
     print("Total speaking time:", total_time, "seconds")
     print("Average speaking time per speaker:", round(average_time,2), "seconds")
     print("Most questions:", most_questions_speaker, "-", most_questions_count, "questions")
