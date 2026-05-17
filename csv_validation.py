@@ -88,7 +88,6 @@ def validate_csv_file(file_path):
             print("Validation failed:")
             for error in validation_errors:
                 print(f"- {error}")
-            return False
         else:
             print("Validation passed!")
             print(f"All {row_number} rows are valid.")
@@ -98,7 +97,6 @@ def validate_csv_file(file_path):
             print(f"- All numeric fields are positive numbers")
             print(f"- All boolean fields are valid")
             print(f"- No missing required values")
-            return True
                 
 
 
