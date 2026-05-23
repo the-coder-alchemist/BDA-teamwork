@@ -218,7 +218,7 @@ Python logic, not AI, is used to add calculated columns.
   - **`num_words_in_text`**: Computes standard splits over whitespace.
   - **`text_size_chars`**: Returns absolute lengths via string measuring logic.
   - **`speech_rate_wps`**: Returns calculated words spoken divided by duration values (`num_words_in_text / time_taken_sec`), rounded to 2 decimal places.
-  - **`speaker_counter`**: Evaluates individual dynamic historical indices to track speaking order (`speaker_turn_id`).
+  - **`speaker_counter`**: Evaluates individual dynamic historical indices to track speaking order (`speaker_counter`).
 
 ### Stage 4: Validate the CSV (`csv_validation.py`)
 
@@ -344,7 +344,7 @@ Pipeline Verification Process Complete.
 
 ## 9. Algorithmic Complexity Analysis
 
-This document provides a comprehensive breakdown of the time and space complexities for the core modules within the meeting speech analytics pipeline. Understanding these complexities ensures the system remains performant and scalable as the size of meeting transcripts and team sizes grow.
+This section provides a comprehensive breakdown of the time and space complexities for the core modules within the meeting speech analytics pipeline. Understanding these complexities ensures the system remains performant and scalable as the size of meeting transcripts and team sizes grow.
 
 ---
 
@@ -359,23 +359,23 @@ This module manages the runtime audio recording via Vosk, stream processing into
 
 ### `correct_all_text(texts)`
 
-- **Time Complexity:** $\mathcal{O}(N \cdot M)$
-  _where $N$ is the total number of text segments (rows) and $M$ is the average character length of each segment._ The function programmatically joins all input text fragments into a single structured, numbered prompt string, scaling linearly with the total volume of characters $\mathcal{O}(N \cdot M)$. The single batch API call's processing overhead on the remote Large Language Model depends directly on token counts, which scale linearly with the input volume.
-- **Space Complexity:** $\mathcal{O}(N \cdot M)$
+- **Time Complexity:** $O(N \cdot M)$
+  _where $N$ is the total number of text segments (rows) and $M$ is the average character length of each segment._ The function programmatically joins all input text fragments into a single structured, numbered prompt string, scaling linearly with the total volume of characters $O(N \cdot M)$. The single batch API call's processing overhead on the remote Large Language Model depends directly on token counts, which scale linearly with the input volume.
+- **Space Complexity:** $O(N \cdot M)$
   The application creates and holds the consolidated `numbered` prompt string and the corresponding full-text `response.text` string concurrently within memory.
 
 ### `realtime_transcription()`
 
-- **Time Complexity:** $\mathcal{O}(T)$
+- **Time Complexity:** $O(T)$
   _where $T$ is the total duration of the recorded audio._ Audio packets are captured and handled in real-time. Vosk’s underlying `KaldiRecognizer` processes incoming audio frames at a fixed, constant rate directly relative to the active runtime of the recording.
-- **Space Complexity:** $\mathcal{O}(T)$
+- **Space Complexity:** $O(T)$
   While the shared frame queue handles small transient memory buffers, the aggregate string `full_text` dynamically grows in memory linearly based on the amount of speech generated across duration $T$.
 
 ### `main()` Execution & Data Mapping
 
-- **Time Complexity:** $\mathcal{O}(N \cdot M)$
-  Disk I/O operations for reading and writing the CSV scale linearly with the size of the dataset $\mathcal{O}(N \cdot M)$. Parsing the returned batch response back into individual rows using list comprehension scales linearly with rows $\mathcal{O}(N)$.
-- **Space Complexity:** $\mathcal{O}(N \cdot M)$
+- **Time Complexity:** $O(N \cdot M)$
+  Disk I/O operations for reading and writing the CSV scale linearly with the size of the dataset $O(N \cdot M)$. Parsing the returned batch response back into individual rows using list comprehension scales linearly with rows $O(N)$.
+- **Space Complexity:** $O(N \cdot M)$
   The Pandas DataFrame dynamically allocates memory to load and manipulate the entire tabular transcript dataset at runtime.
 
 ---
@@ -384,12 +384,12 @@ This module manages the runtime audio recording via Vosk, stream processing into
 
 This script extracts metrics and runs structural transformations purely using native Python logic, processing data from the raw CSV and exporting it to an enriched output format.
 
-- **Time Complexity:** $\mathcal{O}(N \cdot M)$
-  _where $N$ is the number of rows (speaker turns) and $M$ is the average string length of text per row._ \* The top-level iteration block processes the dataset sequentially row by row, resulting in $\mathcal{O}(N)$ passes.
-  - The operation `row.get('text', '').split()` instantiates a token list by scanning a string of length $M$, requiring $\mathcal{O}(M)$ steps.
-  - Average hash-map / dictionary insertions and lookups to update tracking counters take $\mathcal{O}(1)$ stable time.
-- **Space Complexity:** $\mathcal{O}(S)$
-  _where $S$ is the total number of unique speakers in the meeting._ Because data is stream-processed sequentially using `csv.DictReader` and `csv.DictWriter`, rows are not cached in memory collectively ($\mathcal{O}(1)$ row buffer). The primary memory consumer is the `counter` dictionary, which stores a single integer value per unique speaker.
+- **Time Complexity:** $O(N \cdot M)$
+  _where $N$ is the number of rows (speaker turns) and $M$ is the average string length of text per row._ \* The top-level iteration block processes the dataset sequentially row by row, resulting in $O(N)$ passes.
+  - The operation `row.get('text', '').split()` instantiates a token list by scanning a string of length $M$, requiring $O(M)$ steps.
+  - Average hash-map / dictionary insertions and lookups to update tracking counters take $O(1)$ stable time.
+- **Space Complexity:** $O(S)$
+  _where $S$ is the total number of unique speakers in the meeting._ Because data is stream-processed sequentially using `csv.DictReader` and `csv.DictWriter`, rows are not cached in memory collectively ($O(1)$ row buffer). The primary memory consumer is the `counter` dictionary, which stores a single integer value per unique speaker.
 
 ---
 
@@ -399,17 +399,17 @@ This module evaluates the structural integrity and data types of the enriched da
 
 #### Rule Evaluation Helpers (`validate_timestamp`, `validate_numeric_positive`, `validate_boolean`)
 
-- **Time Complexity:** $\mathcal{O}(1)$
+- **Time Complexity:** $O(1)$
   Validates individual values using constant-time string parsing, type assertions, or exception handling.
-- **Space Complexity:** $\mathcal{O}(1)$
+- **Space Complexity:** $O(1)$
   Executes logic strictly within localized, static memory boundaries.
 
 #### `validate_csv_file(file_path)`
 
-- **Time Complexity:** $\mathcal{O}(N)$
-  _where $N$ is the total row count in the target CSV file._ The validation routine scans through the file line-by-line exactly once, executing an identical set of $\mathcal{O}(1)$ rule helpers on every row.
-- **Space Complexity:** $\mathcal{O}(E)$
-  _where $E$ is the count of anomalous records generating validation errors._ For clean datasets, space complexity scales at $\mathcal{O}(1)$. If structural errors are found, messages compile linearly inside the `validation_errors` array.
+- **Time Complexity:** $O(N)$
+  _where $N$ is the total row count in the target CSV file._ The validation routine scans through the file line-by-line exactly once, executing an identical set of $O(1)$ rule helpers on every row.
+- **Space Complexity:** $O(E)$
+  _where $E$ is the count of anomalous records generating validation errors._ For clean datasets, space complexity scales at $O(1)$. If structural errors are found, messages compile linearly inside the `validation_errors` array.
 
 ---
 
@@ -419,29 +419,29 @@ This component maps text variables into multi-dimensional metrics to produce the
 
 #### Data Aggregation Loop
 
-- **Time Complexity:** $\mathcal{O}(N \cdot M)$
-  The entry loop reads through all $N$ data rows sequentially. Splitting or casting strings to numerical types scales with character length $M$. Key insertions, lookups, and scalar mathematical additions inside tracking dictionaries (`word_count`, `speaking_time`, etc.) operate at an average complexity of $\mathcal{O}(1)$.
-- **Space Complexity:** $\mathcal{O}(S)$
+- **Time Complexity:** $O(N \cdot M)$
+  The entry loop reads through all $N$ data rows sequentially. Splitting or casting strings to numerical types scales with character length $M$. Key insertions, lookups, and scalar mathematical additions inside tracking dictionaries (`word_count`, `speaking_time`, etc.) operate at an average complexity of $O(1)$.
+- **Space Complexity:** $O(S)$
   The data structure registers exactly five independent tracking dictionaries, all strictly bounded by the count of unique meeting participants $S$.
 
 #### Ranking & Report Generation
 
-- **Time Complexity:** $\mathcal{O}(S^2)$
-  _where $S$ is the count of unique meeting participants._ \* Locating standard extrema values (e.g., maximum words, minimum words, most questions asked) utilizes simple single-pass loops traversing at $\mathcal{O}(S)$ time.
-  - Generating the **Top 5 Speakers by Time** ranking converts the dictionary into an array and runs a nested **Bubble Sort** implementation. This establishes a mathematical worst-case processing footprint of $\mathcal{O}(S^2)$. _(Note: While quadratically inefficient for massive scales, $S$ remains extremely small for business meetings, optimizing practical execution)._
-- **Space Complexity:** $\mathcal{O}(S)$
+- **Time Complexity:** $O(S^2)$
+  _where $S$ is the count of unique meeting participants._ \* Locating standard extrema values (e.g., maximum words, minimum words, most questions asked) utilizes simple single-pass loops traversing at $O(S)$ time.
+  - Generating the **Top 5 Speakers by Time** ranking converts the dictionary into an array and runs a nested **Bubble Sort** implementation. This establishes a mathematical worst-case processing footprint of $O(S^2)$. _(Note: While quadratically inefficient for massive scales, $S$ remains extremely small for business meetings, optimizing practical execution)._
+- **Space Complexity:** $O(S)$
   Required to instantiate the localized list of tuples (`speaking_time_list`) derived from the primary metrics dictionary to facilitate the inline sorting sequence.
 
 ---
 
 ### Summary Matrix
 
-| Script / Process             | Time Complexity                             | Space Complexity                     | Primary Resource Driver                                                          |
-| :--------------------------- | :------------------------------------------ | :----------------------------------- | :------------------------------------------------------------------------------- |
-| **`correct_all_text`**       | $\mathcal{O}(N \cdot M)$                    | $\mathcal{O}(N \cdot M)$             | Prompt compilation payload and API token stream buffering.                       |
-| **`feature_enrichement`**    | $\mathcal{O}(N \cdot M)$                    | $\mathcal{O}(S)$                     | Linear row stream tokenization; speaker tracker dictionary scaling.              |
-| **`csv_validation`**         | $\mathcal{O}(N)$                            | $\mathcal{O}(E)$ or $\mathcal{O}(1)$ | Single-pass file scanning; error logs compilation.                               |
-| **`analytics_stats_output`** | $\mathcal{O}(N \cdot M) + \mathcal{O}(S^2)$ | $\mathcal{O}(S)$                     | Linear dataset reduction followed by a quadratic Bubble Sort on unique speakers. |
+| Script / Process             | Time Complexity         | Space Complexity | Primary Resource Driver                                                          |
+| :--------------------------- | :---------------------- | :--------------- | :------------------------------------------------------------------------------- |
+| **`correct_all_text`**       | $O(N \cdot M)$          | $O(N \cdot M)$   | Prompt compilation payload and API token stream buffering.                       |
+| **`feature_enrichement`**    | $O(N \cdot M)$          | $O(S)$           | Linear row stream tokenization; speaker tracker dictionary scaling.              |
+| **`csv_validation`**         | $O(N)$                  | $O(E)$ or $O(1)$ | Single-pass file scanning; error logs compilation.                               |
+| **`analytics_stats_output`** | $O(N \cdot M) + O(S^2)$ | $O(S)$           | Linear dataset reduction followed by a quadratic Bubble Sort on unique speakers. |
 
 - **$N$** = Total number of rows in the CSV file
 - **$M$** = Average character length of speaker transcripts
