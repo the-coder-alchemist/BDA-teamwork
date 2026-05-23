@@ -342,118 +342,6 @@ Pipeline Verification Process Complete.
 
 ---
 
-## 9. Algorithmic Complexity Analysis
-
-This section provides a comprehensive breakdown of the time and space complexities for the core modules within the meeting speech analytics pipeline. Understanding these complexities ensures the system remains performant and scalable as the size of meeting transcripts and team sizes grow.
-
----
-
-### 9.1 Transcription & AI Correction Pipeline (`gemini_vosk.py`)
-
-This module manages the runtime audio recording via Vosk, stream processing into raw text, and batch text refinement utilizing the Gemini API.
-
-- **$N$** = Total number of rows in the CSV file
-- **$M$** = Average character length of speaker transcripts
-- **$S$** = Number of unique speakers present in the meeting
-- **$E$** = Total number of logged dataset validation errors
-
-### `correct_all_text(texts)`
-
-- **Time Complexity:** $O(N \cdot M)$
-  _where $N$ is the total number of text segments (rows) and $M$ is the average character length of each segment._ The function programmatically joins all input text fragments into a single structured, numbered prompt string, scaling linearly with the total volume of characters $O(N \cdot M)$. The single batch API call's processing overhead on the remote Large Language Model depends directly on token counts, which scale linearly with the input volume.
-- **Space Complexity:** $O(N \cdot M)$
-  The application creates and holds the consolidated `numbered` prompt string and the corresponding full-text `response.text` string concurrently within memory.
-
-### `realtime_transcription()`
-
-- **Time Complexity:** $O(T)$
-  _where $T$ is the total duration of the recorded audio._ Audio packets are captured and handled in real-time. Vosk’s underlying `KaldiRecognizer` processes incoming audio frames at a fixed, constant rate directly relative to the active runtime of the recording.
-- **Space Complexity:** $O(T)$
-  While the shared frame queue handles small transient memory buffers, the aggregate string `full_text` dynamically grows in memory linearly based on the amount of speech generated across duration $T$.
-
-### `main()` Execution & Data Mapping
-
-- **Time Complexity:** $O(N \cdot M)$
-  Disk I/O operations for reading and writing the CSV scale linearly with the size of the dataset $O(N \cdot M)$. Parsing the returned batch response back into individual rows using list comprehension scales linearly with rows $O(N)$.
-- **Space Complexity:** $O(N \cdot M)$
-  The Pandas DataFrame dynamically allocates memory to load and manipulate the entire tabular transcript dataset at runtime.
-
----
-
-### 9.2 Text Feature Enrichment (`feature_enrichement.py`)
-
-This script extracts metrics and runs structural transformations purely using native Python logic, processing data from the raw CSV and exporting it to an enriched output format.
-
-- **Time Complexity:** $O(N \cdot M)$
-  _where $N$ is the number of rows (speaker turns) and $M$ is the average string length of text per row._ \* The top-level iteration block processes the dataset sequentially row by row, resulting in $O(N)$ passes.
-  - The operation `row.get('text', '').split()` instantiates a token list by scanning a string of length $M$, requiring $O(M)$ steps.
-  - Average hash-map / dictionary insertions and lookups to update tracking counters take $O(1)$ stable time.
-- **Space Complexity:** $O(S)$
-  _where $S$ is the total number of unique speakers in the meeting._ Because data is stream-processed sequentially using `csv.DictReader` and `csv.DictWriter`, rows are not cached in memory collectively ($O(1)$ row buffer). The primary memory consumer is the `counter` dictionary, which stores a single integer value per unique speaker.
-
----
-
-### 9.3 Data Validation Engine (`csv_validation.py`)
-
-This module evaluates the structural integrity and data types of the enriched dataset prior to executing aggregation metrics.
-
-#### Rule Evaluation Helpers (`validate_timestamp`, `validate_numeric_positive`, `validate_boolean`)
-
-- **Time Complexity:** $O(1)$
-  Validates individual values using constant-time string parsing, type assertions, or exception handling.
-- **Space Complexity:** $O(1)$
-  Executes logic strictly within localized, static memory boundaries.
-
-#### `validate_csv_file(file_path)`
-
-- **Time Complexity:** $O(N)$
-  _where $N$ is the total row count in the target CSV file._ The validation routine scans through the file line-by-line exactly once, executing an identical set of $O(1)$ rule helpers on every row.
-- **Space Complexity:** $O(E)$
-  _where $E$ is the count of anomalous records generating validation errors._ For clean datasets, space complexity scales at $O(1)$. If structural errors are found, messages compile linearly inside the `validation_errors` array.
-
----
-
-### 9.4 Meeting Analytics & Aggregation (`analytics_stats_output.py`)
-
-This component maps text variables into multi-dimensional metrics to produce the final analytical summary report.
-
-#### Data Aggregation Loop
-
-- **Time Complexity:** $O(N \cdot M)$
-  The entry loop reads through all $N$ data rows sequentially. Splitting or casting strings to numerical types scales with character length $M$. Key insertions, lookups, and scalar mathematical additions inside tracking dictionaries (`word_count`, `speaking_time`, etc.) operate at an average complexity of $O(1)$.
-- **Space Complexity:** $O(S)$
-  The data structure registers exactly five independent tracking dictionaries, all strictly bounded by the count of unique meeting participants $S$.
-
-#### Ranking & Report Generation
-
-- **Time Complexity:** $O(S^2)$
-  _where $S$ is the count of unique meeting participants._ \* Locating standard extrema values (e.g., maximum words, minimum words, most questions asked) utilizes simple single-pass loops traversing at $O(S)$ time.
-  - Generating the **Top 5 Speakers by Time** ranking converts the dictionary into an array and runs a nested **Bubble Sort** implementation. This establishes a mathematical worst-case processing footprint of $O(S^2)$. _(Note: While quadratically inefficient for massive scales, $S$ remains extremely small for business meetings, optimizing practical execution)._
-- **Space Complexity:** $O(S)$
-  Required to instantiate the localized list of tuples (`speaking_time_list`) derived from the primary metrics dictionary to facilitate the inline sorting sequence.
-
----
-
-### Summary Matrix
-
-| Script / Process             | Time Complexity         | Space Complexity | Primary Resource Driver                                                          |
-| :--------------------------- | :---------------------- | :--------------- | :------------------------------------------------------------------------------- |
-| **`correct_all_text`**       | $O(N \cdot M)$          | $O(N \cdot M)$   | Prompt compilation payload and API token stream buffering.                       |
-| **`feature_enrichement`**    | $O(N \cdot M)$          | $O(S)$           | Linear row stream tokenization; speaker tracker dictionary scaling.              |
-| **`csv_validation`**         | $O(N)$                  | $O(E)$ or $O(1)$ | Single-pass file scanning; error logs compilation.                               |
-| **`analytics_stats_output`** | $O(N \cdot M) + O(S^2)$ | $O(S)$           | Linear dataset reduction followed by a quadratic Bubble Sort on unique speakers. |
-
-- **$N$** = Total number of rows in the CSV file
-- **$M$** = Average character length of speaker transcripts
-- **$S$** = Number of unique speakers present in the meeting
-- **$E$** = Total number of logged dataset validation errors
-
-```
-
-```
-
----
-
 ## 9. Complexity Analysis
 
 This section outlines the Time and Space complexity of the primary functions and processing pipelines implemented across the scripts.
@@ -463,7 +351,7 @@ This section outlines the Time and Space complexity of the primary functions and
 #### `analyze_meeting_data(file_path)`
 
 - **Time Complexity:** $O(N + S^2)$
-  - _Data Gathering:_ $O(N)$, where $N$ is the total number of utterance rows in the CSV file. The script streams rows sequentially and performs $O(1)$ average-time dictionary insertions and lookups.
+  - _Data Gathering:_ $O(N)$, where $N$ is the total number of speech text rows in the CSV file. The script streams rows sequentially and performs $O(1)$ average-time dictionary insertions and lookups.
   - _Aggregation & Metrics:_ $O(S)$, where $S$ is the number of unique speakers ($S \le N$). Finding min/max metrics requires iterating over the speaker dictionaries.
   - _Sorting:_ $O(S^2)$ due to a custom nested-loop **Bubble Sort** implementation used to rank the top 5 speakers by time.
   - _Overall:_ Since $S$ is typically very small in a meeting context, the linear file-scanning time $O(N)$ dominates under practical conditions.
@@ -494,7 +382,7 @@ This section outlines the Time and Space complexity of the primary functions and
 - **Time Complexity:** $O(N \cdot L)$
   - The pipeline iterates through all $N$ rows in the input file.
   - For each record, it runs string-based checks (`'?' in text`, `.split()`, and `len()`) to enrich the dataset. These operations run in time proportional to the character length of the text string, $L$.
-  - Assuming an upper-bound constant for utterance length ($L$), the operational time simplifies to a linear $O(N)$.
+  - Assuming an upper-bound constant for speech row length ($L$), the operational time simplifies to a linear $O(N)$.
 - **Space Complexity:** $O(S)$
   - Input and output files are read and written continuously line-by-line, keeping memory usage minimal.
   - An auxiliary tracking dictionary (`counter`) dynamically grows to match the number of unique speakers $S$ to compute the sequential speaker turn counts.
@@ -535,7 +423,7 @@ Below is a quick reference summary of the computational complexity for each prim
 - Let **$N$** = Total number of rows (speach) in the CSV file.
 - Let **$S$** = Number of unique speakers/participants ($S \le N$).
 - Let **$E$** = Total number of validation errors caught ($E \le 6N$).
-- Let **$L$** = Character length of text strings or utterances.
+- Let **$L$** = Character length of text strings or speech rows.
 - Let **$T$** = Total runtime duration of the live audio stream in seconds.
 - Let **$W$** = Total word/character count of completed local transcript text.
 
