@@ -451,3 +451,79 @@ This component maps text variables into multi-dimensional metrics to produce the
 ```
 
 ```
+
+---
+
+## 9. Complexity Analysis
+
+This section outlines the Time and Space complexity of the primary functions and processing pipelines implemented across the scripts.
+
+### 9.1. Meeting Analytics (`analytics_stats_output.py`)
+
+#### `analyze_meeting_data(file_path)`
+
+- **Time Complexity:** $O(N + S^2)$
+  - _Data Gathering:_ $O(N)$, where $N$ is the total number of utterance rows in the CSV file. The script streams rows sequentially and performs $O(1)$ average-time dictionary insertions and lookups.
+  - _Aggregation & Metrics:_ $O(S)$, where $S$ is the number of unique speakers ($S \le N$). Finding min/max metrics requires iterating over the speaker dictionaries.
+  - _Sorting:_ $O(S^2)$ due to a custom nested-loop **Bubble Sort** implementation used to rank the top 5 speakers by time.
+  - _Overall:_ Since $S$ is typically very small in a meeting context, the linear file-scanning time $O(N)$ dominates under practical conditions.
+- **Space Complexity:** $O(S)$
+  - The file is read iteratively via `csv.DictReader`, avoiding loading the raw file into memory ($O(1)$ heap allocation for input stream).
+  - Auxiliary space scales linearly with the number of unique speakers $S$ to store aggregate data structures (`word_count`, `question_count`, `speaking_time`, etc.).
+
+---
+
+### 9.2. Data Validation (`csv_validation.py`)
+
+#### `validate_csv_file(file_path)`
+
+- **Time Complexity:** $O(N)$
+  - The script reads through the file line-by-line exactly once for all $N$ rows.
+  - For each row, it executes a series of field-level helper validations (`validate_timestamp`, `validate_numeric_positive`, and `validate_boolean`). Each helper completes in $O(1)$ constant time.
+  - Printing the final results takes $O(E)$ time, where $E$ is the total number of validation errors caught ($E \le 6N$).
+- **Space Complexity:** $O(E)$ (Up to $O(N)$ in the worst case)
+  - The input stream consumes $O(1)$ auxiliary memory.
+  - The primary memory consumer is the `validation_errors` list. In a valid file layout, space complexity is $O(1)$. If every column in every row encounters a failure, it scales linearly to $O(N)$.
+
+---
+
+### 9.3. Feature Enrichment (`feature_enrichement.py`)
+
+#### Sequential Processing Pipeline
+
+- **Time Complexity:** $O(N \cdot L)$
+  - The pipeline iterates through all $N$ rows in the input file.
+  - For each record, it runs string-based checks (`'?' in text`, `.split()`, and `len()`) to enrich the dataset. These operations run in time proportional to the character length of the text string, $L$.
+  - Assuming an upper-bound constant for utterance length ($L$), the operational time simplifies to a linear $O(N)$.
+- **Space Complexity:** $O(S)$
+  - Input and output files are read and written continuously line-by-line, keeping memory usage minimal.
+  - An auxiliary tracking dictionary (`counter`) dynamically grows to match the number of unique speakers $S$ to compute the sequential speaker turn counts.
+
+---
+
+### 9.4. Transcription and LLM Pipeline (`gemini_vosk.py`)
+
+#### `correct_all_text(texts)`
+
+- **Time Complexity:** $O(L_{\text{total}}) + O(\text{API Call Latency})$
+  - Constructing the indexed prompt string via list comprehensions requires iterating through all texts, taking linear time relative to the total length of all characters combined ($L_{\text{total}}$).
+  - The transcript post-processing relies on a remote generative AI model, meaning local execution blocks on network I/O and external LLM inference processing.
+- **Space Complexity:** $O(L_{\text{total}})$
+  - Requires holding the full concatenated payload prompt string and the corresponding text responses in memory concurrently before parsing.
+
+#### `realtime_transcription()`
+
+- **Time Complexity:** $O(T)$
+  - Runs an asynchronous thread loop that blocks on audio hardware inputs. The audio data buffers are fed into a local Vosk Kaldi speech recognizer via `AcceptWaveform()`.
+  - Speech processing workloads scale linearly with respect to the total tracking duration of the audio segment ($T$) in seconds.
+- **Space Complexity:** $O(W)$
+  - The sound processing streaming queue acts as a sliding-window buffer requiring $O(1)$ constant space.
+  - The continuous string collection array (`full_text`) grows linearly over time with respect to the total number of transcribed characters ($W$).
+
+#### `main()` Execution Flow (Pandas Integration)
+
+- **Time Complexity:** $O(N \cdot L) + O(\text{API Call Latency})$
+  - Unlike the streaming implementations found in other modules, this script uses `pd.read_csv()` to load the complete history dataset into memory, taking $O(N \cdot L)$ time.
+  - Splitting and mapping the structured Gemini array outputs back to matching data frames scales linearly with the size of the file.
+- **Space Complexity:** $O(N \cdot L)$
+  - Loads the entire transcription matrix into an in-memory Pandas `DataFrame` object structure rather than operating row-by-row, requiring memory directly proportional to the size of the dataset.
