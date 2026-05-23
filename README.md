@@ -527,3 +527,27 @@ This section outlines the Time and Space complexity of the primary functions and
   - Splitting and mapping the structured Gemini array outputs back to matching data frames scales linearly with the size of the file.
 - **Space Complexity:** $O(N \cdot L)$
   - Loads the entire transcription matrix into an in-memory Pandas `DataFrame` object structure rather than operating row-by-row, requiring memory directly proportional to the size of the dataset.
+
+### 9.5. Complexity Summary Table
+
+Below is a quick reference summary of the computational complexity for each primary function across the system.
+
+- Let **$N$** = Total number of rows (speach) in the CSV file.
+- Let **$S$** = Number of unique speakers/participants ($S \le N$).
+- Let **$E$** = Total number of validation errors caught ($E \le 6N$).
+- Let **$L$** = Character length of text strings or utterances.
+- Let **$T$** = Total runtime duration of the live audio stream in seconds.
+- Let **$W$** = Total word/character count of completed local transcript text.
+
+| Script / Context              | Function or Process               | Time Complexity                               | Space Complexity      | Notes / Bottlenecks                                                                          |
+| :---------------------------- | :-------------------------------- | :-------------------------------------------- | :-------------------- | :------------------------------------------------------------------------------------------- |
+| **analytics_stats_output.py** | `analyze_meeting_data(file_path)` | $O(N + S^2)$                                  | $O(S)$                | Streams data line-by-line; $O(S^2)$ is introduced by the custom bubble sort implementation.  |
+| **csv_validation.py**         | `validate_csv_file(file_path)`    | $O(N)$                                        | $O(E)$                | Processes row-by-row. Worst-case memory is $O(N)$ if every check fails on every row.         |
+|                               | `validate_timestamp`              | $O(1)$                                        | $O(1)$                | Built-in string format parsing.                                                              |
+|                               | `validate_numeric_positive`       | $O(1)$                                        | $O(1)$                | Simple float type casting and boundary checks.                                               |
+|                               | `validate_boolean`                | $O(1)$                                        | $O(1)$                | Exact string set matching.                                                                   |
+| **feature_enrichement.py**    | Script Pipeline Execution         | $O(N \cdot L)$                                | $O(S)$                | Line-by-line streaming. String splitting scales with sentence word length $L$.               |
+| **gemini_vosk.py**            | `correct_all_text(texts)`         | $O(L_{\text{total}}) + O(\text{API Latency})$ | $O(L_{\text{total}})$ | Bound by prompt formatting overhead and remote network I/O block times.                      |
+|                               | `realtime_transcription()`        | $O(T)$                                        | $O(W)$                | CPU-bound to acoustic length processing. Running string accumulates tokens over time.        |
+|                               | `save_to_csv(data)`               | $O(1)$                                        | $O(1)$                | Constant time direct append-to-file operation.                                               |
+|                               | `main()` Pipeline (Pandas flow)   | $O(N \cdot L) + O(\text{API Latency})$        | $O(N \cdot L)$        | **Memory Bottleneck**: Loads full datasets into an in-memory DataFrame instead of streaming. |
