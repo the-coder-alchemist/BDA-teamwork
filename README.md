@@ -173,33 +173,124 @@ You are now ready to proceed. You can use the `clear` command to clear the termi
 
 The analytics pipeline contains the following algorithmic stages:
 
-### Stage 1 & 2: Record, Transcribe, and AI-Correct (`gemini_vosk.py`)
+### Stage 1: Record and transcribe speech (`gemini_vosk.py`)
 
-- **Transcription Strategy:** Uses the `sounddevice` package to read raw mono audio input frames inside an asynchronous queue buffer stream.
-- **Local Acoustic Engine:** Feeds buffers blockwise into the `vosk.KaldiRecognizer` machine (`vosk-model-en-us-0.22-lgraph`), aggregating fragmented JSON chunks into a unified `raw_text_vosk` log string.
-- **AI Semantic Alignment:** Groups strings systematically and dispatches batch-indexed correction arrays to `gemini-2.5-flash-lite` through the `google-genai` client. A structured prompt ensures the model injects punctuation, fixes syntax gaps, fixes capitalization variations, and matches raw indices without changing semantic context. The results are written back to an intermediate file (`group_transcript.csv`). The OUTPUT_CSV variable in the `gemini_vosk.py` python file currently writes to a test CSV file (`test_transcript.csv`) to prevent anyone from accidentally overwriting the group transcript CSV file. Change this variable's value in the cloned repository to output to (`group_transcript.csv`) for the subsequent code to work.
+Record each speaker turn and save a raw CSV row. Example raw data:
 
-### Stage 3: Dataset Feature Enrichment (`feature_enrichement.py`)
+| timestamp                    | name            | raw_text_vosk                                                                                          | time_taken_sec |
+| ---------------------------- | --------------- | ------------------------------------------------------------------------------------------------------ | -------------- |
+| `2026-05-10T12:59:12.495072` | Carys Williams  | `i've been tracking use a sign ups and while they're up the conversion from free to pay is low`        | `8.26`         |
+| `2026-05-10T12:59:27.960636` | William McKenna | `i think the onboarding flow is the bottle neck is currently taking users too long to find the valley` | `10.07`        |
+| `2026-05-10T12:59:42.62123`  | Gary Murphy     | `that's a fair points caris what does the pricing feedback look like from those early users`           | `8.1`          |
+
+### Stage 2: Correct the Transcript With AI (`gemini_vosk.py`)
+
+Send each `raw_text_vosk` value to Gemini. The AI should correct spelling, punctuation, and readability. It should not change the meaning.
+
+Example corrected data:
+
+| timestamp                    | name               | raw_text_vosk                                                                                      | text                                                                                                   | time_taken_sec |
+| ---------------------------- | ------------------ | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | -------------- |
+| `2026-05-10T13:01:15.176884` | Toby Lock          | `of allocated budget for the security audit but we need to decide if we're hiring more developers` | `I've allocated budget for the security audit, but we need to decide if we're hiring more developers.` | `9.24`         |
+| `2026-05-10T13:01:44.795188` | Mei Len Vorkel     | `we definitely need of back and specialist if we plan on horizontal scaling by careful`            | `We definitely need a backend specialist if we plan on horizontal scaling. But be careful`             | `8.33`         |
+| `2026-05-10T13:02:07.814951` | Samuel Weldemariam | `if we hire know i can start building the brand story around on new speed and security focus`      | `If we hire now, I can start building the brand story around our new speed and security focus`         | `8.96`         |
+
+### Stage 3: Enrich the Dataset With Python (`feature_enrichement.py`)
+
+Python logic, not AI, is used to add calculated columns.
+
+| Column Name       | Column Calculation                                                      |
+| ----------------- | ----------------------------------------------------------------------- |
+| `timestamp`       | Keep from the raw data.                                                 |
+| `name`            | Keep from the raw data.                                                 |
+| `raw_text_vosk`   | Keep from the raw data.                                                 |
+| `text`            | AI-corrected transcript.                                                |
+| `time_taken_sec`  | Keep from the raw data.                                                 |
+| `question_flag`   | `True` if `text` ends with `?`, otherwise `False`.                      |
+| `num_words`       | Number of words in `text`.                                              |
+| `text_size_chars` | Number of characters in `text`.                                         |
+| `speech_rate_wps` | `num_words / time_taken_sec`, rounded sensibly.                         |
+| `speaker_counter` | Running count for each speaker: first turn is 1, second turn is 2, etc. |
 
 - Reads the corrected log data and applies programmatic rules to output a performance-optimized output file (`group_transcript_enriched.csv`).
-- Calculations bypass deep models to avoid unnecessary processing costs:
+- Calculations bypass deep models to avoid unnecessary AI processing costs:
   - **`has_question_mark`**: Triggers a boolean `True`/`False` check based on trailing syntax.
   - **`num_words_in_text`**: Computes standard splits over whitespace.
   - **`text_size_chars`**: Returns absolute lengths via string measuring logic.
   - **`speech_rate_wps`**: Returns calculated words spoken divided by duration values (`num_words_in_text / time_taken_sec`), rounded to 2 decimal places.
   - **`speaker_counter`**: Evaluates individual dynamic historical indices to track speaking order (`speaker_turn_id`).
 
-### Stage 4: Strict CSV Validation (`csv_validation.py`)
+### Stage 4: Validate the CSV (`csv_validation.py`)
 
-- Evaluates constraints on row limits (verifying at least 25 entries), data type compliance, zero bounds, and logical flags before triggering analytics. Missing fields or structural breaks generate alerts detailing the exact row and problem.
+Before analytics, the code checks that the final CSV is usable (the CSV has at least 25 rows).
 
-### Stage 5: Analytical Reporting Engine (`analytics_stats_output.py`)
+The code checks the following:
 
-- Summarizes performance attributes using a built-in Bubble Sort implementation to calculate rankings, determine speech velocities, find structural trends, and identify leading participants.
+- No required values are missing.
+- `timestamp` values can be parsed as dates/times.
+- `time_taken_sec` is numeric and greater than 0.
+- `num_words` is numeric and greater than 0.
+- `speech_rate_wps` is numeric and greater than 0.
+- `question_flag` contains boolean values.
+- `speaker_counter` is numeric and greater than 0
+
+Validation will print clear messages. For example:
+
+```text
+Validation failed:
+- Row 4: timestamp "-04-28T10:00:05" is not a valid datetime.
+- Row 3: speech_rate_wps is missing.
+```
+
+### Stage 5: Analyse the Dataset (`analytics_stats_output.py`)
+
+- Summarizes performance attributes using a built-in Bubble Sort implementation to calculate rankings, determine speech velocities, and identify leading participants.
+
+After validation passes, the following questions are answered:
+
+1. Who spoke the most by total words?
+2. Who spoke the least by total words?
+3. What is the total speaking time of the meeting?
+4. What is the average speaking time per speaker?
+5. Who asked the most questions?
+6. Who are the top 5 speakers by total speaking time?
+7. What is each speaker's average speech rate?
+
+The following is an example analytics output for the valid rows above:
+
+```text
+==================================================
+Meeting Analytics Report
+==================================================
+
+Most words: Gary Murphy - 109 words
+Least words: Toby Lock - 63 words
+Total speaking time: 259.39 seconds
+Average speaking time per speaker: 43.23 seconds
+Most questions: Gary Murphy - 4 questions
+
+Top 5 speakers by total time:
+Gary Murphy: 60.89 seconds
+William McKenna: 46.76 seconds
+Carys Williams: 41.33 seconds
+Mei Len Vorkel: 38.30 seconds
+Samuel Weldemariam: 37.68 seconds
+
+Gary Murphy average speech rate: 1.81 words/second
+Carys Williams average speech rate: 1.82 words/second
+William McKenna average speech rate: 1.91 words/second
+Mei Len Vorkel average speech rate: 2.07 words/second
+Samuel Weldemariam average speech rate: 1.86 words/second
+Toby Lock average speech rate: 1.83 words/second
+
+==================================================
+```
+
+---
 
 ## 8. Meeting Analytics Pipeline Test Suite (`test_pipeline_enhanced.py`)
 
-This automated test suite provides regression testing and pipeline integrity checks for the conversational data processing pipeline. It utilizes virtualized in-memory file routing (`io.StringIO`) and function mocking (`unittest.mock.patch`) to evaluate file structural constraints, edge-case mathematical data updates, and report generation accuracy without modifying production data files.
+This automated test suite provides testing and pipeline integrity checks for the conversational data processing pipeline. It utilizes virtualized in-memory file routing (`io.StringIO`) and function mocking (`unittest.mock.patch`) to evaluate file structural constraints, edge-case mathematical data updates, and report generation accuracy without modifying production data files.
 
 ### 8.1 Monitored Modules & Files Under Test
 
@@ -222,6 +313,33 @@ The script actively orchestrates unit tests and behavioural validation across th
 
 Console-based **Pipeline Integrity & Analytics Report**, detailing every individual test function name, its specific architectural file target, and the final verification verdict (`PASS` or `FAIL`).
 
+Here is an example of the possible output:
+
+```text
+================================================================================
+                    PIPELINE INTEGRITY & ANALYTICS REPORT
+================================================================================
+Total Tests Executed: 5
+Successful Passes   : 5
+Failures / Crashes  : 0
+--------------------------------------------------------------------------------
+TEST METHOD NAME                    | TARGET SOURCE FILE      | VERIFICATION VERDICT
+--------------------------------------------------------------------------------
+test_analytics_data_reporting       | analytics_stats_output.py | PASS (✓)
+  └─ Objective: Verify bubble-sorting metrics and text aggregation output.
+test_feature_enrichment_logic       | feature_enrichement.py  | PASS (✓)
+  └─ Objective: Test feature enrichment equations and row modification.
+test_numeric_positive_boundaries    | csv_validation.py       | PASS (✓)
+  └─ Objective: Verify numeric boundaries (> 0 constraint).
+test_validate_boolean_formats       | csv_validation.py       | PASS (✓)
+  └─ Objective: Ensure boolean validations cleanly capture various cases.
+test_validate_timestamp_formats     | csv_validation.py       | PASS (✓)
+  └─ Objective: Ensure ISO timestamps pass and malformed ones fail.
+================================================================================
+Pipeline Verification Process Complete.
+================================================================================
+```
+
 ---
 
 ## 9. Algorithmic Complexity Analysis
@@ -241,23 +359,23 @@ This module manages the runtime audio recording via Vosk, stream processing into
 
 ### `correct_all_text(texts)`
 
-- **Time Complexity:** $\mathcal{O}(N \cdot M)$  
+- **Time Complexity:** $\mathcal{O}(N \cdot M)$
   _where $N$ is the total number of text segments (rows) and $M$ is the average character length of each segment._ The function programmatically joins all input text fragments into a single structured, numbered prompt string, scaling linearly with the total volume of characters $\mathcal{O}(N \cdot M)$. The single batch API call's processing overhead on the remote Large Language Model depends directly on token counts, which scale linearly with the input volume.
-- **Space Complexity:** $\mathcal{O}(N \cdot M)$  
+- **Space Complexity:** $\mathcal{O}(N \cdot M)$
   The application creates and holds the consolidated `numbered` prompt string and the corresponding full-text `response.text` string concurrently within memory.
 
 ### `realtime_transcription()`
 
-- **Time Complexity:** $\mathcal{O}(T)$  
+- **Time Complexity:** $\mathcal{O}(T)$
   _where $T$ is the total duration of the recorded audio._ Audio packets are captured and handled in real-time. Vosk’s underlying `KaldiRecognizer` processes incoming audio frames at a fixed, constant rate directly relative to the active runtime of the recording.
-- **Space Complexity:** $\mathcal{O}(T)$  
+- **Space Complexity:** $\mathcal{O}(T)$
   While the shared frame queue handles small transient memory buffers, the aggregate string `full_text` dynamically grows in memory linearly based on the amount of speech generated across duration $T$.
 
 ### `main()` Execution & Data Mapping
 
-- **Time Complexity:** $\mathcal{O}(N \cdot M)$  
+- **Time Complexity:** $\mathcal{O}(N \cdot M)$
   Disk I/O operations for reading and writing the CSV scale linearly with the size of the dataset $\mathcal{O}(N \cdot M)$. Parsing the returned batch response back into individual rows using list comprehension scales linearly with rows $\mathcal{O}(N)$.
-- **Space Complexity:** $\mathcal{O}(N \cdot M)$  
+- **Space Complexity:** $\mathcal{O}(N \cdot M)$
   The Pandas DataFrame dynamically allocates memory to load and manipulate the entire tabular transcript dataset at runtime.
 
 ---
@@ -266,11 +384,11 @@ This module manages the runtime audio recording via Vosk, stream processing into
 
 This script extracts metrics and runs structural transformations purely using native Python logic, processing data from the raw CSV and exporting it to an enriched output format.
 
-- **Time Complexity:** $\mathcal{O}(N \cdot M)$  
+- **Time Complexity:** $\mathcal{O}(N \cdot M)$
   _where $N$ is the number of rows (speaker turns) and $M$ is the average string length of text per row._ \* The top-level iteration block processes the dataset sequentially row by row, resulting in $\mathcal{O}(N)$ passes.
   - The operation `row.get('text', '').split()` instantiates a token list by scanning a string of length $M$, requiring $\mathcal{O}(M)$ steps.
   - Average hash-map / dictionary insertions and lookups to update tracking counters take $\mathcal{O}(1)$ stable time.
-- **Space Complexity:** $\mathcal{O}(S)$  
+- **Space Complexity:** $\mathcal{O}(S)$
   _where $S$ is the total number of unique speakers in the meeting._ Because data is stream-processed sequentially using `csv.DictReader` and `csv.DictWriter`, rows are not cached in memory collectively ($\mathcal{O}(1)$ row buffer). The primary memory consumer is the `counter` dictionary, which stores a single integer value per unique speaker.
 
 ---
@@ -281,16 +399,16 @@ This module evaluates the structural integrity and data types of the enriched da
 
 #### Rule Evaluation Helpers (`validate_timestamp`, `validate_numeric_positive`, `validate_boolean`)
 
-- **Time Complexity:** $\mathcal{O}(1)$  
+- **Time Complexity:** $\mathcal{O}(1)$
   Validates individual values using constant-time string parsing, type assertions, or exception handling.
-- **Space Complexity:** $\mathcal{O}(1)$  
+- **Space Complexity:** $\mathcal{O}(1)$
   Executes logic strictly within localized, static memory boundaries.
 
 #### `validate_csv_file(file_path)`
 
-- **Time Complexity:** $\mathcal{O}(N)$  
+- **Time Complexity:** $\mathcal{O}(N)$
   _where $N$ is the total row count in the target CSV file._ The validation routine scans through the file line-by-line exactly once, executing an identical set of $\mathcal{O}(1)$ rule helpers on every row.
-- **Space Complexity:** $\mathcal{O}(E)$  
+- **Space Complexity:** $\mathcal{O}(E)$
   _where $E$ is the count of anomalous records generating validation errors._ For clean datasets, space complexity scales at $\mathcal{O}(1)$. If structural errors are found, messages compile linearly inside the `validation_errors` array.
 
 ---
@@ -301,17 +419,17 @@ This component maps text variables into multi-dimensional metrics to produce the
 
 #### Data Aggregation Loop
 
-- **Time Complexity:** $\mathcal{O}(N \cdot M)$  
+- **Time Complexity:** $\mathcal{O}(N \cdot M)$
   The entry loop reads through all $N$ data rows sequentially. Splitting or casting strings to numerical types scales with character length $M$. Key insertions, lookups, and scalar mathematical additions inside tracking dictionaries (`word_count`, `speaking_time`, etc.) operate at an average complexity of $\mathcal{O}(1)$.
-- **Space Complexity:** $\mathcal{O}(S)$  
+- **Space Complexity:** $\mathcal{O}(S)$
   The data structure registers exactly five independent tracking dictionaries, all strictly bounded by the count of unique meeting participants $S$.
 
 #### Ranking & Report Generation
 
-- **Time Complexity:** $\mathcal{O}(S^2)$  
+- **Time Complexity:** $\mathcal{O}(S^2)$
   _where $S$ is the count of unique meeting participants._ \* Locating standard extrema values (e.g., maximum words, minimum words, most questions asked) utilizes simple single-pass loops traversing at $\mathcal{O}(S)$ time.
   - Generating the **Top 5 Speakers by Time** ranking converts the dictionary into an array and runs a nested **Bubble Sort** implementation. This establishes a mathematical worst-case processing footprint of $\mathcal{O}(S^2)$. _(Note: While quadratically inefficient for massive scales, $S$ remains extremely small for business meetings, optimizing practical execution)._
-- **Space Complexity:** $\mathcal{O}(S)$  
+- **Space Complexity:** $\mathcal{O}(S)$
   Required to instantiate the localized list of tuples (`speaking_time_list`) derived from the primary metrics dictionary to facilitate the inline sorting sequence.
 
 ---
@@ -329,3 +447,7 @@ This component maps text variables into multi-dimensional metrics to produce the
 - **$M$** = Average character length of speaker transcripts
 - **$S$** = Number of unique speakers present in the meeting
 - **$E$** = Total number of logged dataset validation errors
+
+```
+
+```
