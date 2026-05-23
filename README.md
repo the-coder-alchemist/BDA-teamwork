@@ -1,272 +1,254 @@
-# Team Project Brief: Meeting Speech Analytics with Vosk + AI
+# Team Pipeline Project: Meeting Speech Analytics with Vosk + AI
 
-## 1. Project goal
+## Team Composition & Functional Role Matrix
 
-Your team will build a data analytics pipeline for a startup that builds a
-team meeting application.
+The work for this project was systematically divided among members of **Team Pipeline** into specialized functional pairings according to our formal project plan matrix. Each team managed complementary technical areas of the end-to-end data pipeline:
 
-The pipeline should:
+### 1. Sub-Team Allocations & Core Responsibilities
 
-1. Record short spoken statements from different team members.
-2. Transcribe the speech with an audio model, such as Vosk.
-3. Correct the transcript with an AI option, for example Gemini API, local Ollama, or another model.
-4. Save the results in a CSV dataset.
-5. Enrich your data with Python.
-6. Validate the dataset before analysis.
-7. Produce basic speaking analytics.
+| Role                   | Team Members                      | Core Technical Responsibilities                                                                                                                                   |
+| :--------------------- | :-------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Data Engineers**     | Toby Lock<br>William Mckenna      | Local environment configuration, Vosk model installation, audio recording management, and raw CSV stream output initialization.                                   |
+| **AI & Logic Devs**    | Carys Williams<br>Mei Len Vorkel  | Gemini API schema integration, batch transcript parsing, correction mapping algorithms, and custom programmatic feature enrichment.                               |
+| **QA & Documentation** | Gary Murphy<br>Samuel Weldemariam | File structural integrity checks, boundary value criteria verification, conversational data analytics reporting, Big O reporting, and video presentation editing. |
 
-The final project should be clear enough that anyone can clone your
-repository, install the dependencies, run the code, and understand the output.
+## 1. Project Overview
 
-## 2. Scenario
+This repository contains a data analytics pipeline designed for team meeting speech processing. The application records microphone audio data during real-time conversations, streams transcription tasks using an open-source speech-to-text model, cleans spelling errors via LLM (Large Language Model) API integration, calculates downstream speaking behaviour statistics with native Python routines, validates schema bounds, and prints finalised executive performance summaries.
 
-Imagine your team is having a short startup meeting. Each person says one or
-more short phrases that are transcribed by an audio model. For example:
+The architecture ensures that teams can seamlessly clone this repository, install required libraries, and record, validate, and extract conversational intelligence.
 
-- Stelios: "hello team today we discuss mobile app growth"
-- Mary: "can we target students first"
-- Kate: "i think we need lower pricing for early users"
+---
 
-For this project, you can use Vosk, which transcribes audio but may produce imperfect text. Your job is to keep the raw Vosk transcript, correct it with AI, and then analyze the cleaned data.
+## 2. Pipeline Execution Steps
 
-Minimum dataset size:
+Our team implemented the distinct algorithmic pipeline stages outlined below:
 
-- At least 25 rows in your final CSV.
-- Rows should come from your own team recordings, not only from the examples in
-  this brief.
+### Stage 1 & 2: Record, Transcribe, and AI-Correct (`gemini_vosk.py`)
 
-## 3. Recommended technologies
+- **Transcription Strategy:** Uses the `sounddevice` package to read raw mono audio input frames inside an asynchronous queue buffer stream.
+- **Local Acoustic Engine:** Feeds buffers blockwise into the `vosk.KaldiRecognizer` machine (`vosk-model-en-us-0.22-lgraph`), aggregating fragmented JSON chunks into a unified `raw_text_vosk` log string.
+- **AI Semantic Alignment:** Groups strings systematically and dispatches batch-indexed correction arrays to `gemini-2.5-flash-lite` through the `google-genai` client. A structured prompt ensures the model injects punctuation, fixes syntax gaps, fixes capitalization variations, and matches raw indices without changing semantic context. The results are written back to an intermediate file (`group_transcript.csv`). The OUTPUT_CSV variable in this python file currently writes to a test CSV file (`test_transcript.csv`) to prevent anyone from accidentally overwriting the group transcript CSV file. Change this variable's value in the cloned or forked repository to output to (`group_transcript.csv`) for the subsequent code to work.
 
-Use:
+### Stage 3: Dataset Feature Enrichment (`feature_enrichement.py`)
 
-- Python
-- Vosk speech recognition
-- Vosk model: `vosk-model-en-us-0.22-lgraph` (128M)
-- Gemini API or local Ollama for transcript correction
-- CSV files for storing the dataset
+- Reads the corrected log data and applies programmatic rules to output a performance-optimized output file (`group_transcript_enriched.csv`).
+- Calculations bypass deep models to avoid unnecessary processing costs:
+  - **`has_question_mark`**: Triggers a boolean `True`/`False` check based on trailing syntax.
+  - **`num_words_in_text`**: Computes standard splits over whitespace.
+  - **`text_size_chars`**: Returns absolute lengths via string measuring logic.
+  - **`speech_rate_wps`**: Returns calculated words spoken divided by duration values (`num_words_in_text / time_taken_sec`), rounded to 2 decimal places.
+  - **`speaker_counter`**: Evaluates individual dynamic historical indices to track speaking order (`speaker_turn_id`).
 
-Download the Vosk model from: [https://alphacephei.com/vosk/models](https://alphacephei.com/vosk/models)
+### Stage 4: Strict CSV Validation (`csv_validation.py`)
 
-After downloading, unzip it so your project contains a folder like this:
+- Evaluates constraints on row limits (verifying at least 25 entries), data type compliance, zero bounds, and logical flags before triggering analytics. Missing fields or structural breaks generate alerts detailing the exact row and problem.
 
-```text
-vosk-model-en-us-0.22-lgraph/
+### Stage 5: Analytical Reporting Engine (`analytics_stats_output.py`)
+
+- Summarizes performance attributes using a built-in Bubble Sort implementation to calculate rankings, determine speech velocities, find structural trends, and identify leading participants.
+
+### Meeting Analytics Pipeline Test Suite
+
+This automated test suite provides regression testing and pipeline integrity checks for the conversational data processing pipeline. It utilizes virtualized in-memory file routing (`io.StringIO`) and function mocking (`unittest.mock.patch`) to evaluate file structural constraints, edge-case mathematical data updates, and report generation accuracy without modifying production data files.
+
+#### Monitored Modules & Files Under Test
+
+The script actively orchestrates unit tests and behavioural validation across the following pipeline assets:
+
+- **`csv_validation.py`**
+  - **Timestamp Format Verification:** Ensures meeting logs accurately follow strict ISO-8601 formatting criteria.
+  - **Data Integrity Checkpoints:** Confirms data field inputs are accurately restricted to expected string/boolean flags (`TRUE`/`FALSE`).
+  - **Boundary Value Analytics:** Confirms that numeric attributes (e.g., speech duration) conform to operational logical limits ($> 0$).
+- **`feature_enrichement.py`**
+  - **Mathematical Transforms:** Evaluates the runtime accuracy of feature calculations including text length counts, dynamic conversation speech-rate equations, and targeted question mark identifiers.
+  - **State Tracking Logic:** Validates sequential index counters that increment individual speaker dialogue turns accurately.
+- **`analytics_stats_output.py`**
+  - **Sorting Validation:** Intercepts console print streams to verify that custom bubble-sorting algorithms cleanly rank meeting participants by total talk time.
+  - **Aggregation Integrity:** Assures the correct derivation of metrics like average speaking speeds, question metrics, and high/low word limits.
+- **`gemini_vosk.py`**
+  - Imported into the pipeline workspace scope to ensure architectural integration, dependencies, and environment configurations resolve correctly during automated testing loops.
+
+#### Execution Outputs
+
+Rather than outputting standard terminal dot markers (`...`), the system intercepts test outcomes via a custom `PipelineTestRunner`. Upon execution completion, it overrides normal output streams to cleanly frame a console-based **Pipeline Integrity & Analytics Report**, detailing every individual test function name, its specific architectural file target, and the final verification verdict (`PASS` or `FAIL`).
+
+---
+
+## 3. Algorithmic Space and Time Complexity Analysis
+
+To verify that the Team Pipeline software architecture operates efficiently under scaling workloads, this section provides an algorithmic profiling of our four core engine components.
+
+For the purposes of this analysis:
+
+- $N$ represents the total number of dialogue turn records processed through the pipeline (for our production baseline run, $N = 30$ turns).
+- $M$ represents the maximum length of characters or word sequences contained within a single conversational turn.
+- $U$ represents the number of unique speaking participants interacting in the meeting transcript ($U \le N$; for Team Pipeline, $U = 6$ core members: _Gary, Carys, William, Samuel, Mei Len, and Toby_).
+
+---
+
+### 4.0 Architectural Efficiency Assessment
+
+| Pipeline Component           | Script Name                 | Time Complexity                 | Space Complexity          | Scaling Behavior Analysis                                                                                                      |
+| :--------------------------- | :-------------------------- | :------------------------------ | :------------------------ | :----------------------------------------------------------------------------------------------------------------------------- |
+| **1. Audio & AI Capture**    | `gemini_vosk.py`            | $\mathcal{O}(T + N \times M)$   | $\mathcal{O}(N \times M)$ | Scales linearly with recording length and transcription volume. Bound by network API speeds.                                   |
+| **2. Feature Enrichment**    | `feature_enrichement.py`    | $\mathcal{O}(N \times M)$       | $\mathcal{O}(U)$          | Fast, stream-based processing layout. Memory stays low even when row counts scale upward.                                      |
+| **3. Schema Validation**     | `csv_validation.py`         | $\mathcal{O}(N)$                | $\mathcal{O}(1)$          | Highly efficient baseline scan. Constant memory footprint makes it ideal for large files.                                      |
+| **4. Performance Analytics** | `analytics_stats_output.py` | $\mathcal{O}(N \times M + U^2)$ | $\mathcal{O}(U)$          | Runtime is driven by data volume ($N$). The $\mathcal{O}(U^2)$ sorting step remains fast because team sizes are small ($U=6$). |
+
+### 5. Workspace setup
+
+1. Install Git if it is not already installed from [here](https://git-scm.com/install/). For Mac: `brew install git`. For Windows: download and install it.
+2. Install [Visual Studio Code](https://code.visualstudio.com/) (or another editor you prefer). After installing Git, restart VS Code if it was already open.
+3. Open a terminal.
+4. Clone the class repository:
+
+```bash
+git clone https://github.com/the-coder-alchemist/BDA-teamwork.git
 ```
 
-> Explore the example code for how to use the model. You may use any model or Python library that you prefer, as long as you can explain its time and space complexity.
+> [!TIP]
+>
+> If the repository already exists, run `git pull` instead of cloning again.
 
-## 4. Starter files
+5. Open the project folder in VS Code.
+6. Open a terminal inside VS Code. (File Menu > Terminal > New Terminal)
+7. You will need to navigate to folders using the `cd` command.
 
-This folder contains examples to help you start. They are not a complete final submission.
+### 6. Check Python installation
 
-| File | Purpose |
-| --- | --- |
-| `examples/vosk_microphone_black_box.py` | A small microphone transcription example using Vosk. Students must adapt it for speaker names, timing, and CSV output. |
-| `examples/gemini_correct_example.py` | Shows how to send one transcript to Gemini and print the corrected sentence. |
-| `examples/ollama_correct_example.py` | Shows how to send one transcript to a local Ollama model and print the corrected sentence. |
-| `requirements.txt` | Python packages used by the examples. |
-| `Peer_Evaluation_Form.docx` | Individual peer evaluation form. Each student submits this separately. |
+Check that Python is installed:
 
-## 5. Pipeline requirements
-
-Your project should implement these stages.
-
-### Stage 1: Record and transcribe speech
-
-Record each speaker turn and save a raw CSV row. Example raw data:
-
-| timestamp | name | raw_text_vosk | time_taken_sec |
-| --- | --- | --- | --- |
-| `2026-04-28T10:00:05` | Stelios | `helo team today we discuss mobile app growth` | `6.2` |
-| `2026-04-28T10:00:18` | Mary | `can we target students first` | `3.8` |
-| `2026-04-28T10:00:30` | Kate | `i think we need lower pricing for early users` | `5.1` |
-
-### Stage 2: Correct the Transcript With AI
-
-Send each `raw_text_vosk` value to Gemini or Ollama. The AI should correct spelling, punctuation, and readability. It should not change the meaning. For example, you can add a new column.
-
-| Column | Meaning |
-| --- | --- |
-| `text` | AI-corrected version of `raw_text_vosk` |
-
-Example corrected data:
-
-| timestamp | name | raw_text_vosk | text | time_taken_sec |
-| --- | --- | --- | --- | --- |
-| `2026-04-28T10:00:05` | Stelios | `helo team today we discuss mobile app growth` | `Hello team, today we discuss mobile app growth.` | `6.2` |
-| `2026-04-28T10:00:18` | Mary | `can we target students first` | `Can we target students first?` | `3.8` |
-| `2026-04-28T10:00:30` | Kate | `i think we need lower pricing for early users` | `I think we need lower pricing for early users.` | `5.1` |
-
-### Stage 3: Enrich the Dataset With Python
-
-Use Python logic, not AI, to add calculated columns. Recommended final columns:
-
-| Column | How to calculate it |
-| --- | --- |
-| `timestamp` | Keep from the raw data. |
-| `name` | Keep from the raw data. |
-| `raw_text_vosk` | Keep from the raw data. |
-| `text` | AI-corrected transcript. |
-| `time_taken_sec` | Keep from the raw data. |
-| `question_flag` | `True` if `text` ends with `?`, otherwise `False`. |
-| `num_words` | Number of words in `text`. |
-| `text_size_chars` | Number of characters in `text`. |
-| `speech_rate_wps` | `num_words / time_taken_sec`, rounded sensibly. |
-| `speaker_turn_id` | Running count for each speaker: first turn is 1, second turn is 2, etc. |
-
-Example enriched data:
-
-| timestamp | name | text | time_taken_sec | question_flag | num_words | text_size_chars | speech_rate_wps | speaker_turn_id |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `2026-04-28T10:00:05` | Stelios | `Hello team, today we discuss mobile app growth.` | `6.2` | `False` | `8` | `47` | `1.29` | `1` |
-| `2026-04-28T10:00:18` | Mary | `Can we target students first?` | `3.8` | `True` | `5` | `29` | `1.32` | `1` |
-| `2026-04-28T10:00:30` | Kate | `I think we need lower pricing for early users.` | `5.1` | `False` | `9` | `46` | `1.76` | `1` |
-| `2026-04-28T10:00:40` | Stelios | `Ok, let's proceed!` | `3.2` | `False` | `3` | `18` | `0.94` | `2` |
-
-### Stage 4: Validate the CSV
-
-Before analytics, your code should check that the final CSV is usable (the CSV has at least 25 rows).
-
-At minimum, check:
-
-- No required values are missing.
-- `timestamp` values can be parsed as dates/times.
-- `time_taken_sec` is numeric and greater than 0.
-- `num_words` is numeric and greater than 0.
-- `speech_rate_wps` is numeric and greater than 0.
-- `question_flag` contains boolean values.
-- `speaker_turn_id` is numeric and greater than 0.
-
-Validation should print clear messages. For example:
-
-```text
-Validation failed:
-- Row 4: timestamp "-04-28T10:00:05" is not a valid datetime.
-- Row 3: speech_rate_wps is missing.
+```bash
+python3 --version
 ```
 
-### Stage 5: Analyse the Dataset
+On Windows, you can also run:
 
-After validation passes, answer these questions:
+```powershell (or CMD)
+python3 --version
+```
 
-1. Who spoke the most by total words?
-2. Who spoke the least by total words?
-3. What is the total speaking time of the meeting?
-4. What is the average speaking time per speaker?
-5. Who asked the most questions?
-6. Who are the top 5 speakers by total speaking time?
-7. What is each speaker's average speech rate?
+### 7. Basics you should know
 
-Use clear output. Console output is acceptable. A short report is also acceptable. The following is an example analytics output for the four valid rows above. Feel free to improvise if you find a better format.
+- `Python`: the programming language, not the snake 🐍.
 
-| Metric | Result |
-| --- | --- |
-| Most words | Stelios, 11 words |
-| Least words | Mary, 5 words |
-| Total speaking time | 18.3 seconds |
-| Average speaking time per speaker | 6.1 seconds |
-| Most questions | Mary, 1 question |
-| 1st speaker by time | Stelios, 9.4 seconds |
-| 2nd speaker by time | Kate, 5.1 seconds |
-| 3rd speaker by time | Mary, 3.8 seconds |
-| Stelios average speech rate | 1.17 words/second |
-| Mary average speech rate | 1.32 words/second |
-| Kate average speech rate | 1.76 words/second |
+- `Terminal`: a text-based tool where you run commands like `python3 --version` or `pip install`.
+- `cd`: changes directory (moves you into another folder).
+- `pwd`: prints your current folder path.
+- `Virtual environment (.venv)`: keeps each project’s Python packages separate, so different projects don’t conflict. Different projects often need different package versions; isolation avoids conflicts.
+- `pip`: Python’s package manager; it installs libraries like `vosk` or `sounddevice`.
+- `requirements.txt`: a list of required Python packages for the project. It lets everyone install the same dependencies and reproduce the same setup. (Recommended: Use a virtual environment run this. See instructions below)
+- `README.md`: a simple project file where you document what you built, what worked, and what is pending (useful for tracking progress). Not sure about Markdown syntax? [Check here](https://www.markdownguide.org/basic-syntax/).
 
-## 8. Complexity Discussion
+You will need to navigate folders in the terminal using `cd`.
 
-Include a short README explaining time and space complexity. You should explain the major operations in your code.
+Quick examples (macOS/Linux):
 
-## 9. Deliverables
+```bash
+pwd
+cd session1
+pwd
+cd ..
+```
 
-Submit:
+Quick examples (Windows PowerShell):
 
-1. A GitHub repository with runnable code.
-2. A final CSV dataset with at least 25 rows.
-3. Validation output, either in the console, a log file, or a short report.
-4. Analytics output, either in the console or a short report.
-5. A short project README explaining:
-   - what the app does,
-   - how to install dependencies,
-   - how to run the project,
-   - what files are produced.
-6. A team presentation video.
-7. An individual peer evaluation form from each team member.
+```powershell
+Get-Location
+cd session1
+Get-Location
+cd ..
+```
 
-Share your team repository with Stelios on GitHub. The GitHub handle is: `steliosot`.
+### 8. Create and manage a virtual environment
 
-## 10. Video Guidance
+You will need a virtual environment to install the required packages.
 
-Keep the video simple and focused. Recommended structure:
+> [!TIP]
+>
+> Make sure you are in the correct folder before creating it.
+>
+> Navigate to the folder using `cd BDA-teamwork`.
 
-1. Briefly introduce the project.
-2. Show the tool running from a user point of view.
-3. Show the CSV output.
-4. Show the validation and analytics output.
-5. Each team member briefly explains what they worked on.
+Create a virtual environment:
 
-You do not need to explain the code.
+On macOS/Linux(the dot before the name hides the folder):
 
-## 11. Peer Evaluation
+```bash
+python3 -m venv .venv
+```
 
-Each student must submit `Peer_Evaluation_Form.docx` individually.
+On Windows:
 
-- Do not mark yourself.
-- Give each teammate a score from 0 to 100.
-- Add comments where useful.
-- The peer evaluation form is required. Without it, the submission cannot be accepted.
+```powershell
+python -m venv .venv
+# or
+py -m venv .venv
+```
 
+Activate the environment:
 
-## 12. Use of AI
+```bash
+source .venv/bin/activate
+```
 
-You may use AI tools to help debug code, understand errors, and improve your workflow. You may also use AI for transcript correction. However:
+> On Windows (VS Code terminal):
+>
+> - PowerShell: `.venv\Scripts\Activate.ps1` (may be blocked by execution policy on some machines. Then use CMD, navigate to the Scripts folder and enter activate)
+> - If activation is blocked, run scripts directly with: `.venv\Scripts\python.exe your_script.py`
 
-- You must understand your final code.
-- You must be able to explain your final submission.
-- You must not submit code that your team cannot run or explain.
+Deactivate it when needed:
 
-## 13. Optional Extensions
+```bash
+deactivate
+```
 
-These are optional (not graded).
+Now check the `requirements.txt` file. It contains the dependencies we need:
 
-- Sentiment analysis per speaker.
-- Charts showing speaking time or word count per speaker.
+```txt
+google-auth==2.50.0
+google-genai==1.75.0
+h11==0.16.0
+httpcore==1.0.9
+httpx==0.28.1
+idna==3.13
+pyasn1==0.6.3
+pyasn1_modules==0.4.2
+pycparser==3.0
+pydantic==2.13.3
+pydantic_core==2.46.3
+requests==2.33.1
+sniffio==1.3.1
+sounddevice==0.5.5
+srt==3.5.3
+tenacity==9.1.4
+tqdm==4.67.3
+typing-inspection==0.4.2
+typing_extensions==4.15.0
+urllib3==2.6.3
+vosk==0.3.44
+websockets==16.0
+```
 
-## 14. Evaluation Checklist
+> [!TIP]
+>
+> A **`requirements.txt`** file lists all Python packages a project needs. It helps everyone recreate the same environment. Pin exact versions when reproducibility is critical.
 
-Use this before submission:
+#### 6. Install dependencies
 
-- [ ] GitHub repository is shared with `steliosot`.
-- [ ] Code runs from clear instructions.
-- [ ] Vosk model is used correctly.
-- [ ] Gemini or Ollama correction is implemented (other models are also acceptable).
-- [ ] Final CSV has at least 25 rows.
-- [ ] Final CSV includes all required columns.
-- [ ] Validation checks are implemented.
-- [ ] Analytics questions are answered.
-- [ ] Time and space complexity are explained.
-- [ ] README is clear and short.
-- [ ] Team video is recorded and shared.
-- [ ] Each student submits the peer evaluation form individually.
+Activate `.venv` again and install dependencies:
 
-## 15. Rubric
+```bash
+pip install -r requirements.txt
+```
 
-The final mark has two parts:
+If `pip` is missing, run:
 
-- 50% from peer evaluation.
-- 50% from Stelios.
+```bash
+python3 -m ensurepip --upgrade
+python3 -m pip install --upgrade pip
+```
 
-The rubric below is used for Stelios's 50%.
-
-| Area | Weight | What We Are Looking For |
-| --- | --- | --- |
-| Speech-to-text pipeline | 20% | Correct use of Vosk and the required model; clear raw transcript output. |
-| AI correction | 15% | Sensible use of Gemini or Ollama; corrected text keeps the original meaning. |
-| CSV dataset and enrichment | 20% | At least 25 rows; required columns; Python-generated features are correct. |
-| Validation and analytics | 20% | Useful validation checks; correct statistics; sorted top-5 speaker output. |
-| Team collaboration and GitHub | 10% | Clear repository structure; evidence of shared work; readable commits or branches. |
-| README, presentation, and explanation | 15% | Clear run instructions; working demo; time and space complexity explained. |
-
-## 16. Need Advice?
-
-Book a call with Stelios to chat about your project with your team: [https://cal.com/steliosot/15min](https://cal.com/steliosot/15min)
+Check the output to ensure everything installed successfully. You can ignore most warnings for the moment.
+You are now ready to proceed. You can use the `clear` command to clear the terminal (Windows CMD = cls). Try it out.
