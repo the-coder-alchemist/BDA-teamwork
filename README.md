@@ -4,198 +4,243 @@
 
 ## 1. Project Overview
 
-This repository contains a data analytics pipeline designed for team meeting speech processing. The application records microphone audio data during real-time conversations, streams transcription tasks using an open-source speech-to-text model, cleans spelling errors via LLM (Large Language Model) API integration, calculates downstream speaking behaviour statistics with native Python routines, validates schema bounds, and prints finalised executive performance summaries.
+This repository contains a data analytics pipeline designed for team meeting speech processing. The application records microphone audio during real-time conversations, streams transcription tasks through an open-source speech-to-text model (Vosk), cleans the resulting transcript via an LLM (Gemini), calculates per-speaker speaking-behaviour statistics with native Python, validates the dataset against a schema, and prints a finalised analytics report.
 
-The architecture ensures that teams can seamlessly clone this repository, install required libraries, and record, validate, and extract conversational intelligence.
+The architecture is designed so that any user can clone this repository, install the required libraries, record their own meeting, and produce a validated, enriched CSV together with a summary report.
 
 ---
 
-## 2. Workspace setup
+## 2. Cross-Platform Shell Quick Reference
 
-1. Install Git if it is not already installed from [here](https://git-scm.com/install/). For Mac: `brew install git`. For Windows: download and install it.
-2. Install [Visual Studio Code](https://code.visualstudio.com/) (or another editor you prefer). After installing Git, restart VS Code if it was already open.
+Before proceeding, this section provides a reference table for translating commands between operating systems and shells. Throughout this README, commands are shown for **macOS / Linux** (`bash` or `zsh`) and for **Windows** (`PowerShell` and `Command Prompt / CMD`). Shell differences are a more frequent source of difficulty than the Python code itself, so reviewing this section once is recommended.
+
+| Task                          | macOS / Linux (bash, zsh)                     | Windows PowerShell                            | Windows Command Prompt (CMD) |
+| ----------------------------- | --------------------------------------------- | --------------------------------------------- | ---------------------------- |
+| Show current folder           | `pwd`                                         | `Get-Location` or `pwd`                       | `cd` (no argument)           |
+| List files                    | `ls`                                          | `Get-ChildItem` or `ls`                       | `dir`                        |
+| Change folder                 | `cd path/to/folder`                           | `cd path\to\folder`                           | `cd path\to\folder`          |
+| Go up one folder              | `cd ..`                                       | `cd ..`                                       | `cd ..`                      |
+| Clear the screen              | `clear`                                       | `Clear-Host` or `cls`                         | `cls`                        |
+| Path separator                | `/` (forward slash)                           | `\` (backslash; `/` is also usually accepted) | `\` (backslash)              |
+| Run Python                    | `python3`                                     | `python` or `py`                              | `python` or `py`             |
+| Set env variable (session)    | `export VAR="value"`                          | `$env:VAR="value"`                            | `set VAR=value`              |
+| Set env variable (persistent) | Add `export ...` to `~/.zshrc` or `~/.bashrc` | `[Environment]::SetEnvironmentVariable(...)`  | `setx VAR "value"`           |
+| Read env variable             | `echo $VAR`                                   | `echo $env:VAR`                               | `echo %VAR%`                 |
+| Activate `.venv`              | `source .venv/bin/activate`                   | `.venv\Scripts\Activate.ps1`                  | `.venv\Scripts\activate.bat` |
+| Deactivate `.venv`            | `deactivate`                                  | `deactivate`                                  | `deactivate`                 |
+| Delete a file                 | `rm file.csv`                                 | `Remove-Item file.csv` or `del file.csv`      | `del file.csv`               |
+| Delete a folder               | `rm -r folder/`                               | `Remove-Item -Recurse folder`                 | `rmdir /s folder`            |
+
+### Common pitfalls
+
+**bash versus zsh on macOS.** macOS has used `zsh` as the default shell since macOS Catalina (2019). The majority of commands in this README operate identically in both shells, but if external documentation references `~/.bashrc`, the zsh equivalent on a modern macOS installation is `~/.zshrc`.
+
+**`python` versus `python3` versus `py`.** On most macOS and Linux installations, `python` is either missing or refers to Python 2; the correct command is `python3`. On Windows the launcher is usually `py`, which automatically selects the most recent installed Python 3. If a command in this README fails because the interpreter is not found, substitute `python3`, `python`, or `py` and retry.
+
+**PowerShell execution policy.** If `.venv\Scripts\Activate.ps1` is rejected with an error indicating _"running scripts is disabled on this system"_, run PowerShell as Administrator once and execute:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
+
+Then reopen the terminal and retry the activation. As an alternative that does not require a policy change, invoke the venv's Python directly: `.venv\Scripts\python.exe your_script.py`.
+
+**Quotation handling in environment variables.** PowerShell and bash both accept `"PASTE_YOUR_KEY"` as a quoted value, but **CMD's `set` command stores the surrounding quotation marks as part of the value**. On CMD, use `set GEMINI_API_KEY=PASTE_YOUR_KEY` (without quotes). On PowerShell and bash, the quotes are correct.
+
+**Line endings.** macOS and Linux use `\n` (line feed); Windows uses `\r\n` (carriage return followed by line feed). Python's `csv` module with the `newline=''` argument handles both conventions automatically, and the code in this repository already does so. If a CSV opened in a text editor shows `^M` at the end of every line, the file is in Windows format viewed on a Unix system.
+
+---
+
+## 3. Workspace Setup
+
+1. Install **Git** if it is not already installed.
+   - **macOS:** `brew install git` (requires [Homebrew](https://brew.sh/)), or download from [git-scm.com](https://git-scm.com/).
+   - **Linux:** `sudo apt install git` (Debian/Ubuntu), `sudo dnf install git` (Fedora), or the equivalent for the distribution in use.
+   - **Windows:** download and run the installer from [git-scm.com](https://git-scm.com/download/win). The installer also provides "Git Bash", a bash-like terminal that is often more convenient than CMD.
+2. Install [Visual Studio Code](https://code.visualstudio.com/), or any preferred editor. If VS Code was already open when Git was installed, restart it so that the updated PATH is loaded.
 3. Open a terminal.
-4. Clone the class repository:
+4. Clone the repository:
+
+   ```bash
+   git clone https://github.com/the-coder-alchemist/BDA-teamwork.git
+   ```
+
+   > [!TIP]
+   > If the repository already exists locally, run `git pull` from inside the folder rather than cloning again.
+
+5. Open the project folder in VS Code (`File > Open Folder...`).
+6. Open a terminal inside VS Code: `Terminal > New Terminal`. VS Code uses the system default shell unless an alternative is selected (`Ctrl+Shift+P` → "Terminal: Select Default Profile").
+7. Use `cd` to navigate into the project folder if it is not already the active directory.
+
+---
+
+## 4. Check Python Installation
 
 ```bash
-git clone https://github.com/the-coder-alchemist/BDA-teamwork.git
-```
-
-> [!TIP]
->
-> If the repository already exists, run `git pull` instead of cloning again.
-
-5. Open the project folder in VS Code.
-6. Open a terminal inside VS Code. (File Menu > Terminal > New Terminal)
-7. You will need to navigate to folders using the `cd` command.
-
-## 3. Check Python installation
-
-Check that Python is installed:
-
-```bash
+# macOS / Linux
 python3 --version
 ```
 
-On Windows, you can also run:
-
-```powershell (or command prompt CMD)
-python3 --version
+```powershell
+# Windows PowerShell or CMD
+python --version
+# or
+py --version
 ```
 
-## 4. Create API key (free)
+Python 3.10 or newer is required for this project. If the command is not found, install Python from [python.org](https://www.python.org/downloads/). On Windows, ensure the option _"Add Python to PATH"_ is selected during installation.
 
-Go to Google AI Studio, login using your gmail account and create an API key:
+---
 
-- https://aistudio.google.com/app/api-keys
-- Add a name (or keep the default) and choose `Default Gemini Project`.
-- Create a key and keep it private.
-- Copy the API key (for example, `AIza...`).
+## 5. Create the Gemini API Key (free tier)
 
-## 5. Set API key in terminal
+1. Navigate to Google AI Studio: <https://aistudio.google.com/app/api-keys>
+2. Sign in with a Gmail account.
+3. Select **Create API key**, provide a name (or accept the default), and choose `Default Gemini Project`.
+4. Copy the key (it begins with `AIza...`). Treat the key as confidential, similar to a password.
 
-Return to your Visual Studio Code terminal. On macOS/Linux, run the following command (replace with your API key):
+### Setting the key in the terminal
+
+**macOS / Linux (bash or zsh):**
 
 ```bash
 export GEMINI_API_KEY="PASTE_YOUR_KEY"
 ```
 
-On Windows PowerShell:
+To make the value persist across new terminals, add the same line to `~/.zshrc` (modern macOS) or `~/.bashrc` (most Linux distributions), then either restart the terminal or run `source ~/.zshrc`.
+
+**Windows PowerShell (session-only):**
 
 ```powershell
 $env:GEMINI_API_KEY="PASTE_YOUR_KEY"
 ```
 
-On Windows Command Prompt (CMD):
-
-```Command Prompt
-set GEMINI_API_KEY="PASTE_YOUR_KEY"
-```
-
-Two quick details to keep in mind:
-Temporary Nature:
-This only sets the key for your current Command Prompt session. If you close the window, you will need to run it again.
-
-Making it permanent:
-If you want Command Prompt to remember your key every time you open it, use setx instead:
-
-setx GEMINI_API_KEY "PASTE_YOUR_KEY"
-
-_(Note: After running `setx`, you will need to restart VS Code or open a new terminal window for the change to take effect)._
-
-> [!TIP]
-> Gemini is free to use (at the time of this writing), but there are some limits.The code provided in this repository in the (`gemini_vosk.py`) file numbers each text item and sends them to Gemini in a single prompt to minimize API calls, and returns the model's corrected version. You can also use an OPENAI_API_KEY, but you will need to change the os.environ["GEMINI_API_KEY"]
-
-```python
-#gemini transcript clean
-def correct_all_text(texts):
-    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
-    ...
-
-#OpenAI transcript clean
-def correct_all_text(texts):
-    client = genai.Client(api_key=os.environ["OPENAI_API_KEY"])
-    ...
-```
-
-**Test key is set**
-
-Run this quick check in your terminal:
-
-```bash
-python3 -c 'import os; k=os.getenv("GEMINI_API_KEY"); print("GEMINI_API_KEY set:", bool(k)); print("Key length:", len(k) if k else 0)'
-```
-
-If `GEMINI_API_KEY set: True` appears and key length is greater than 0, your environment variable is working. Clear your terminal using `clear`, and let's proceed.
-
-**Limits note**
-
-Google AI Studio is free, but it has usage limits (typically 5-15 requests per minute, depending on the model).
-
-> [!TIP]
->
-> Limits depend on model and tier, and can change over time.
->
-> Check the latest limits before running: https://ai.google.dev/gemini-api/docs/quota. If you exceed limits, you may receive `429` errors until quota resets.
-
-## 6. Basics you should know
-
-- `Python`: the programming language, not the snake 🐍.
-
-- `Terminal`: a text-based tool where you run commands like `python3 --version` or `pip install`.
-- `cd`: changes directory (moves you into another folder).
-- `pwd`: prints your current folder path.
-- `Virtual environment (.venv)`: keeps each project’s Python packages separate, so different projects don’t conflict. Different projects often need different package versions; isolation avoids conflicts.
-- `pip`: Python’s package manager; it installs libraries like `vosk` or `sounddevice`.
-- `requirements.txt`: a list of required Python packages for the project. It lets everyone install the same dependencies and reproduce the same setup. (Recommended: Use a virtual environment run this. See instructions below)
-- `README.md`: a simple project file where you document what you built, what worked, and what is pending (useful for tracking progress). Not sure about Markdown syntax? [Check here](https://www.markdownguide.org/basic-syntax/).
-
-You will need to navigate folders in the terminal using `cd`.
-
-Quick examples (macOS/Linux):
-
-```bash
-pwd
-cd session1
-pwd
-cd ..
-```
-
-Quick examples (Windows PowerShell):
+**Windows PowerShell (persistent across sessions):**
 
 ```powershell
-Get-Location
-cd session1
-Get-Location
-cd ..
+[Environment]::SetEnvironmentVariable("GEMINI_API_KEY", "PASTE_YOUR_KEY", "User")
 ```
 
-## 7. Create and manage a virtual environment
+Restart VS Code, or open a new terminal, for the change to take effect.
 
-You will need a virtual environment to install the required packages.
+**Windows Command Prompt (session-only):**
+
+```cmd
+set GEMINI_API_KEY=PASTE_YOUR_KEY
+```
+
+Note: do **not** enclose the value in quotation marks when using `set`. CMD treats the quotes as part of the stored value.
+
+**Windows Command Prompt (persistent):**
+
+```cmd
+setx GEMINI_API_KEY "PASTE_YOUR_KEY"
+```
+
+Restart VS Code, or open a new terminal, for `setx` to apply.
 
 > [!TIP]
->
-> Make sure you are in the correct folder before creating it.
->
-> Navigate to the folder using `cd BDA-teamwork`.
+> The code in `gemini_vosk.py` batches every raw transcript into a single Gemini call to remain within the free-tier quota. To use OpenAI instead, replace `os.environ["GEMINI_API_KEY"]` with `os.environ["OPENAI_API_KEY"]` and update the client construction accordingly.
 
-Create a virtual environment:
-
-On macOS/Linux(the dot before the name hides the folder):
+### Verify that the key is set
 
 ```bash
+# macOS / Linux / Git Bash
+python3 -c 'import os; k=os.getenv("GEMINI_API_KEY"); print("Set:", bool(k), "Length:", len(k) if k else 0)'
+```
+
+```powershell
+# Windows PowerShell / CMD
+python -c "import os; k=os.getenv('GEMINI_API_KEY'); print('Set:', bool(k), 'Length:', len(k) if k else 0)"
+```
+
+If the output indicates `Set: True` and a non-zero length, the configuration is complete.
+
+> [!TIP]
+> Google AI Studio is free of charge but rate-limited (typically 5–15 requests per minute, depending on model and tier). Current quotas are documented at <https://ai.google.dev/gemini-api/docs/quota>. Exceeding the limit returns HTTP status code `429` until the quota resets.
+
+---
+
+## 6. Core Concepts
+
+- **Python** — the programming language used throughout the project.
+- **Terminal / shell** — a text-based interface for executing commands. On macOS this is typically Terminal.app (running zsh); on Windows it is PowerShell, CMD, or the integrated terminal in VS Code.
+- **`cd`** — change directory (move into another folder). The command is identical across platforms.
+- **`pwd` / `Get-Location`** — display the current folder path.
+- **Virtual environment (`.venv`)** — an isolated Python installation for a specific project. Prevents one project's dependencies from interfering with another's installed packages.
+- **`pip`** — Python's package manager. Installs the libraries listed in `requirements.txt`.
+- **`requirements.txt`** — the list of Python packages this project depends on. Any user can recreate the same environment with `pip install -r requirements.txt`.
+- **README.md** — this file. Markdown syntax reference: <https://www.markdownguide.org/basic-syntax/>.
+
+---
+
+## 7. Create and Activate a Virtual Environment
+
+> [!TIP]
+> Ensure the working directory is the project folder (`cd BDA-teamwork`) before creating the virtual environment.
+
+**Create the virtual environment:**
+
+```bash
+# macOS / Linux
 python3 -m venv .venv
 ```
 
-On Windows:
-
 ```powershell
+# Windows
 python -m venv .venv
-# or
+# or, if 'python' is missing:
 py -m venv .venv
 ```
 
-Activate the environment:
+The leading dot in `.venv` causes the folder to be hidden on Unix-style filesystems. On Windows, the folder is treated as standard.
 
-```bash
-source .venv/bin/activate
-```
+**Activate the virtual environment:**
 
-> On Windows (VS Code terminal):
->
-> - PowerShell: `.venv\Scripts\Activate.ps1` (may be blocked by execution policy on some machines. Then use CMD, navigate to the Scripts folder and enter activate)
-> - If activation is blocked, run scripts directly with: `.venv\Scripts\python.exe your_script.py`
+| Shell                     | Activation command              |
+| ------------------------- | ------------------------------- |
+| bash / zsh (macOS, Linux) | `source .venv/bin/activate`     |
+| Git Bash on Windows       | `source .venv/Scripts/activate` |
+| PowerShell                | `.venv\Scripts\Activate.ps1`    |
+| Command Prompt (CMD)      | `.venv\Scripts\activate.bat`    |
 
-Deactivate it when needed:
+The prompt should now begin with `(.venv)`. If PowerShell rejects the activation script, refer to the _"PowerShell execution policy"_ entry in section 2.
+
+**Deactivate when finished:**
 
 ```bash
 deactivate
 ```
 
-The `requirements.txt` file contains the dependencies you will need:
+This command operates identically across every shell.
 
-```txt
+---
+
+## 8. Install Dependencies
+
+With `.venv` activated:
+
+```bash
+pip install -r requirements.txt
+```
+
+If `pip` itself is unavailable (uncommon but possible):
+
+```bash
+# macOS / Linux
+python3 -m ensurepip --upgrade
+python3 -m pip install --upgrade pip
+```
+
+```powershell
+# Windows
+python -m ensurepip --upgrade
+python -m pip install --upgrade pip
+```
+
+The `requirements.txt` file pins the exact versions used during development:
+
+```text
 google-auth==2.50.0
 google-genai==1.75.0
 h11==0.16.0
@@ -220,37 +265,39 @@ vosk==0.3.44
 websockets==16.0
 ```
 
-> [!TIP]
->
-> A **`requirements.txt`** file lists all Python packages a project needs. It helps everyone recreate the same environment. Pin exact versions when reproducibility is critical.
+Specifying exact version numbers—known as 'pinning'—ensures your project always uses the exact same code, i.e. improves reproducibility, preventing unexpected bugs when external libraries change. The trade-off is that you must manually update these pinned versions to get the latest security fixes and improvements when upstream libraries release patches.
 
-## 8. Install dependencies
+### Vosk model download
 
-Activate `.venv` again and install dependencies:
+Download `vosk-model-en-us-0.22-lgraph` (128 MB) from <https://alphacephei.com/vosk/models> and unzip it into the project root. The resulting structure should be:
 
-```bash
-pip install -r requirements.txt
+```text
+BDA-teamwork/
+├── gemini_vosk.py
+├── vosk-model-en-us-0.22-lgraph/
+│   ├── am/
+│   ├── conf/
+│   ├── graph/
+│   └── ...
 ```
-
-If `pip` is missing, run:
-
-```bash
-python3 -m ensurepip --upgrade
-python3 -m pip install --upgrade pip
-```
-
-Check the output to ensure everything installed successfully.
-You are now ready to proceed. You can use the `clear` command to clear the terminal (Windows command prompt CMD = cls).
 
 ---
 
 ## 9. Pipeline Execution Steps
 
-The analytics pipeline contains the following algorithmic stages:
+The pipeline operates in five stages.
 
-### Stage 1: Record and transcribe speech (`gemini_vosk.py`)
+### Stage 1 and 2: Record and Correct (`gemini_vosk.py`)
 
-Record each speaker turn and save a raw CSV row. Example raw data:
+Records each speaker turn from the microphone, transcribes it offline with Vosk, then submits every raw transcript to Gemini in a single batch for spelling, punctuation, and casing correction.
+
+```bash
+python gemini_vosk.py
+```
+
+At the prompt, press **R** to record a new utterance (the speaker's name is requested first, after which `Ctrl+C` stops the recording) or **Q** to finish and trigger Gemini cleanup. Output is written to `test_transcript.csv` by default; rename the `OUTPUT_CSV` constant to `group_transcript.csv` before the final run so that the downstream stages can locate the file.
+
+Example raw row:
 
 | timestamp                    | name            | raw_text_vosk                                                                                          | time_taken_sec |
 | ---------------------------- | --------------- | ------------------------------------------------------------------------------------------------------ | -------------- |
@@ -258,11 +305,7 @@ Record each speaker turn and save a raw CSV row. Example raw data:
 | `2026-05-10T12:59:27.960636` | William McKenna | `i think the onboarding flow is the bottle neck is currently taking users too long to find the valley` | `10.07`        |
 | `2026-05-10T12:59:42.62123`  | Gary Murphy     | `that's a fair points caris what does the pricing feedback look like from those early users`           | `8.1`          |
 
-### Stage 2: Correct the Transcript With AI (`gemini_vosk.py`)
-
-Send each `raw_text_vosk` value to Gemini. The AI should correct spelling, punctuation, and readability. It should not change the meaning.
-
-Example corrected data:
+Example after Gemini correction:
 
 | timestamp                    | name               | raw_text_vosk                                                                                      | text                                                                                                   | time_taken_sec |
 | ---------------------------- | ------------------ | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | -------------- |
@@ -270,73 +313,63 @@ Example corrected data:
 | `2026-05-10T13:01:44.795188` | Mei Len Vorkel     | `we definitely need of back and specialist if we plan on horizontal scaling by careful`            | `We definitely need a backend specialist if we plan on horizontal scaling. But be careful`             | `8.33`         |
 | `2026-05-10T13:02:07.814951` | Samuel Weldemariam | `if we hire know i can start building the brand story around on new speed and security focus`      | `If we hire now, I can start building the brand story around our new speed and security focus`         | `8.96`         |
 
-### Stage 3: Enrich the Dataset With Python (`feature_enrichement.py`)
+### Stage 3: Enrich (`feature_enrichement.py`)
 
-Python logic, not AI, is used to add calculated columns.
+Adds five derived columns to the raw CSV using pure Python (no AI involvement). Reads from `group_transcript.csv` and writes `group_transcript_enriched.csv`.
 
-| Column Name       | Column Calculation                                                      |
-| ----------------- | ----------------------------------------------------------------------- |
-| `timestamp`       | Keep from the raw data.                                                 |
-| `name`            | Keep from the raw data.                                                 |
-| `raw_text_vosk`   | Keep from the raw data.                                                 |
-| `text`            | AI-corrected transcript.                                                |
-| `time_taken_sec`  | Keep from the raw data.                                                 |
-| `question_flag`   | `True` if `text` ends with `?`, otherwise `False`.                      |
-| `num_words`       | Number of words in `text`.                                              |
-| `text_size_chars` | Number of characters in `text`.                                         |
-| `speech_rate_wps` | `num_words / time_taken_sec`, rounded sensibly.                         |
-| `speaker_counter` | Running count for each speaker: first turn is 1, second turn is 2, etc. |
-
-- Reads the corrected log data and applies programmatic rules to output a performance-optimized output file (`group_transcript_enriched.csv`).
-  _(Note: Ensure that you change the output variable to output to the csv file shown above before running the code which creates the file when you are past the testing. The subsequent files need the csv file to be named as above to work - or you will need to find and change this name in all the files)._
-
-```python
-#Configuring Model
-...
-OUTPUT_CSV = "test_transcript.csv"
-...
-
-# Change to this before running the gemini_vosk.py file
-#Configuring Models
-...
-OUTPUT_CSV = "group_transcript_enriched.csv"
-...
+```bash
+python feature_enrichement.py
 ```
 
-- Calculations bypass deep models to avoid unnecessary AI processing costs:
-  - **`has_question_mark`**: Triggers a boolean `True`/`False` check based on trailing syntax.
-  - **`num_words_in_text`**: Computes standard splits over whitespace.
-  - **`text_size_chars`**: Returns absolute lengths via string measuring logic.
-  - **`speech_rate_wps`**: Returns calculated words spoken divided by duration values (`num_words_in_text / time_taken_sec`), rounded to 2 decimal places.
-  - **`speaker_counter`**: Evaluates individual dynamic historical indices to track speaking order (`speaker_counter`).
+| Column              | Calculation                                                                                    |
+| ------------------- | ---------------------------------------------------------------------------------------------- |
+| `has_question_mark` | `True` if `text` contains `?`, otherwise `False`                                               |
+| `num_words_in_text` | Whitespace-split word count of `text`                                                          |
+| `text_size_chars`   | Character length of `text`                                                                     |
+| `speech_rate_wps`   | `num_words_in_text / time_taken_sec`, rounded to 2 decimal places                              |
+| `speaker_counter`   | Running count of this speaker's utterances (1 for the first turn, 2 for the second, and so on) |
 
-### Stage 4: Validate the CSV (`csv_validation.py`)
+> [!NOTE]
+> The assignment brief specifies slightly different column names (`question_flag`, `num_words`, `speaker_turn_id`). The implementation uses the names listed above. Validation and analytics both read the implementation names.
 
-Before analytics, the code checks that the final CSV is usable (the CSV has at least 25 rows).
+### Stage 4: Validate (`csv_validation.py`)
 
-The code checks the following:
+Reads `group_transcript_enriched.csv` and verifies every row:
 
-- No required values are missing.
-- `timestamp` values can be parsed as dates/times.
-- `time_taken_sec` is numeric and greater than 0.
-- `num_words` is numeric and greater than 0.
-- `speech_rate_wps` is numeric and greater than 0.
-- `question_flag` contains boolean values.
-- `speaker_counter` is numeric and greater than 0
+```bash
+python csv_validation.py
+```
 
-Validation will print clear messages. For example:
+Validation rules:
+
+- Every `timestamp` value parses as an ISO 8601 datetime.
+- `time_taken_sec`, `num_words_in_text`, `speech_rate_wps`, and `speaker_counter` are numeric and strictly greater than zero.
+- `has_question_mark` is a boolean (the validator accepts `True` and `False` in any letter case, including the string form).
+
+Failures are reported as follows:
 
 ```text
 Validation failed:
-- Row 4: timestamp "-04-28T10:00:05" is not a valid datetime.
-- Row 3: speech_rate_wps is missing.
+- Row 4: timestamp "-04-28T10:00:05" is not a valid datetime
+- Row 3: speech_rate_wps '0' is not greater than 0
 ```
 
-### Stage 5: Analyse the Dataset (`analytics_stats_output.py`)
+A passing run produces:
 
-- Summarizes performance attributes using a built-in Bubble Sort implementation to calculate rankings, determine speech velocities, and identify leading participants.
+```text
+Validation passed!
+All 30 rows are valid.
+```
 
-After validation passes, the following questions are answered:
+### Stage 5: Analytics (`analytics_stats_output.py`)
+
+Aggregates per-speaker statistics and prints a summary report. The ranking of the top five speakers by total speaking time is produced by a hand-written bubble sort applied to a list of `(speaker, time)` tuples.
+
+```bash
+python analytics_stats_output.py
+```
+
+Questions answered:
 
 1. Who spoke the most by total words?
 2. Who spoke the least by total words?
@@ -346,7 +379,7 @@ After validation passes, the following questions are answered:
 6. Who are the top 5 speakers by total speaking time?
 7. What is each speaker's average speech rate?
 
-The following is an example analytics output for the valid rows above:
+Example output:
 
 ```text
 ==================================================
@@ -368,42 +401,29 @@ Samuel Weldemariam: 37.68 seconds
 
 Gary Murphy average speech rate: 1.81 words/second
 Carys Williams average speech rate: 1.82 words/second
-William McKenna average speech rate: 1.91 words/second
-Mei Len Vorkel average speech rate: 2.07 words/second
-Samuel Weldemariam average speech rate: 1.86 words/second
-Toby Lock average speech rate: 1.83 words/second
-
+...
 ==================================================
 ```
 
 ---
 
-## 10. Meeting Analytics Pipeline Test Suite (`test_pipeline_enhanced.py`)
+## 10. Test Suite (`pipeline_unit_testing.py`)
 
-This automated test suite provides testing and pipeline integrity checks for the conversational data processing pipeline. It utilizes virtualized in-memory file routing (`io.StringIO`) and function mocking (`unittest.mock.patch`) to evaluate file structural constraints, edge-case mathematical data updates, and report generation accuracy without modifying production data files.
+Automated tests for the pipeline. Uses `unittest`, together with `unittest.mock.patch` and `io.StringIO`, to supply mocked CSV data without writing to disk.
 
-### 10.1 Monitored Modules & Files Under Test
+```bash
+python pipeline_unit_testing.py
+```
 
-The script actively orchestrates unit tests and behavioural validation across the following pipeline assets:
+The suite includes the following tests:
 
-- **`csv_validation.py`**
-  - **Timestamp Format Verification:** Ensures meeting logs accurately follow strict ISO-8601 formatting criteria.
-  - **Data Integrity Checkpoints:** Confirms data field inputs are accurately restricted to expected string/boolean flags (`TRUE`/`FALSE`).
-  - **Boundary Value Analytics:** Confirms that numeric attributes (e.g., speech duration) conform to operational logical limits ($> 0$).
-- **`feature_enrichement.py`**
-  - **Mathematical Transforms:** Evaluates the runtime accuracy of feature calculations including text length counts, dynamic conversation speech-rate equations, and targeted question mark identifiers.
-  - **State Tracking Logic:** Validates sequential index counters that increment individual speaker dialogue turns accurately.
-- **`analytics_stats_output.py`**
-  - **Sorting Validation:** Intercepts console print streams to verify that custom bubble-sorting algorithms cleanly rank meeting participants by total talk time.
-  - **Aggregation Integrity:** Assures the correct derivation of metrics like average speaking speeds, question metrics, and high/low word limits.
-- **`gemini_vosk.py`**
-  - Imported into the pipeline workspace scope to ensure architectural integration, dependencies, and environment configurations resolve correctly during automated testing loops.
+- **`test_validate_timestamp_formats`** — Confirms that ISO timestamps pass validation and that malformed values fail with an informative message.
+- **`test_validate_boolean_formats`** — Confirms that `"TRUE"`, `"false"`, and the native `True` are accepted, and that `"Yes"` is rejected.
+- **`test_numeric_positive_boundaries`** — Verifies boundary cases: a positive value passes; `0` and negative values fail (strict greater-than); non-numeric input fails with a distinct error message.
+- **`test_feature_enrichment_logic`** — Patches `builtins.open` and verifies that the new columns appear, that `num_words / time_taken_sec` is computed correctly, and that the per-speaker counter increments as expected. Triggers `feature_enrichement` via an `importlib.reload`, since the enrichment runs as a top-level script body rather than inside a callable function.
+- **`test_analytics_data_reporting`** — Patches `builtins.open` and `sys.stdout`, runs the analytics function, and asserts that the report contains the expected aggregates in the correct sort order produced by the bubble-sort implementation.
 
-### 10.2 Execution Outputs
-
-Console-based **Pipeline Integrity & Analytics Report**, detailing every individual test function name, its specific architectural file target, and the final verification verdict (`PASS` or `FAIL`).
-
-Here is an example of the possible output:
+A successful run produces a custom report:
 
 ```text
 ================================================================================
@@ -413,126 +433,205 @@ Total Tests Executed: 5
 Successful Passes   : 5
 Failures / Crashes  : 0
 --------------------------------------------------------------------------------
-TEST METHOD NAME                    | TARGET SOURCE FILE      | VERIFICATION VERDICT
+TEST METHOD NAME                    | TARGET SOURCE FILE        | VERIFICATION VERDICT
 --------------------------------------------------------------------------------
 test_analytics_data_reporting       | analytics_stats_output.py | PASS (✓)
   └─ Objective: Verify bubble-sorting metrics and text aggregation output.
-test_feature_enrichment_logic       | feature_enrichement.py  | PASS (✓)
+test_feature_enrichment_logic       | feature_enrichement.py    | PASS (✓)
   └─ Objective: Test feature enrichment equations and row modification.
-test_numeric_positive_boundaries    | csv_validation.py       | PASS (✓)
+test_numeric_positive_boundaries    | csv_validation.py         | PASS (✓)
   └─ Objective: Verify numeric boundaries (> 0 constraint).
-test_validate_boolean_formats       | csv_validation.py       | PASS (✓)
+test_validate_boolean_formats       | csv_validation.py         | PASS (✓)
   └─ Objective: Ensure boolean validations cleanly capture various cases.
-test_validate_timestamp_formats     | csv_validation.py       | PASS (✓)
+test_validate_timestamp_formats     | csv_validation.py         | PASS (✓)
   └─ Objective: Ensure ISO timestamps pass and malformed ones fail.
-================================================================================
-Pipeline Verification Process Complete.
 ================================================================================
 ```
 
 ---
 
-## 11. Complexity Analysis
+## 11. Time and Space Complexity Analysis
 
-This section outlines the Time and Space complexity of the primary functions and processing pipelines implemented across the scripts.
+This section documents the complexity of every public function in the pipeline as implemented in this repository.
 
-- Let **$N$** = Total number of rows (speach) in the CSV file.
-- Let **$S$** = Number of unique speakers/participants ($S \le N$).
-- Let **$E$** = Total number of validation errors caught ($E \le 6N$).
-- Let **$L$** = Character length of text strings or speech rows.
-- Let **$T$** = Total runtime duration of the live audio stream in seconds.
-- Let **$W$** = Total word/character count of completed local transcript text.
+### Notation
 
-### 11.1. Meeting Analytics (`analytics_stats_output.py`)
+| Symbol | Meaning                                                               |
+| ------ | --------------------------------------------------------------------- |
+| `N`    | Number of rows (utterances) in the CSV                                |
+| `S`    | Number of unique speakers (always `S ≤ N`)                            |
+| `L`    | Average character length of the `text` field per row                  |
+| `E`    | Number of validation errors recorded (worst case `6N`, best case `0`) |
+| `T`    | Total duration in seconds of a live audio recording                   |
+| `W`    | Total transcribed character count from the live stream                |
+| `R`    | Length of the response returned by the Gemini API                     |
+| `M`    | Number of recordings made in a single `gemini_vosk.main()` session    |
+| `t`    | Number of test methods in the unit-test suite                         |
+| `m`    | Number of rows in mocked CSV strings inside tests                     |
+| `o`    | Size of captured stdout during a test                                 |
+| `P`    | Source-file size of a module being reloaded (`importlib.reload`)      |
+
+### 11.1 Meeting Analytics — `analytics_stats_output.py`
 
 #### `analyze_meeting_data(file_path)`
 
-- **Time Complexity:** $O(N + S^2)$
-  - _Data Gathering:_ $O(N)$, where $N$ is the total number of speech text rows in the CSV file. The script streams rows sequentially and performs $O(1)$ average-time dictionary insertions and lookups.
-  - _Aggregation & Metrics:_ $O(S)$, where $S$ is the number of unique speakers ($S \le N$). Finding min/max metrics requires iterating over the speaker dictionaries.
-  - _Sorting:_ $O(S^2)$ due to a custom nested-loop **Bubble Sort** implementation used to rank the top 5 speakers by time.
-  - _Overall:_ Since $S$ is typically very small in a meeting context, the linear file-scanning time $O(N)$ dominates under practical conditions.
-- **Space Complexity:** $O(S)$
-  - The file is read iteratively via `csv.DictReader`, avoiding loading the raw file into memory ($O(1)$ heap allocation for input stream).
-  - Auxiliary space scales linearly with the number of unique speakers $S$ to store aggregate data structures (`word_count`, `question_count`, `speaking_time`, etc.).
+Aggregates per-speaker statistics from an enriched transcript and prints a report.
 
----
+- **Time:** `O(N + S²)`.
+  - **Streaming pass over the file:** `O(N)`. Each row triggers a constant number of `O(1)` dictionary updates (word totals, question totals, speaking time, speech-rate running totals).
+  - **Aggregation across speakers:** `O(S)`. Identifying the most and least words, the most-questions speaker, and the total and average time each requires iterating over the speaker dictionaries.
+  - **Sorting:** `O(S²)`. A hand-written nested-loop bubble sort ranks the `(speaker, time)` tuples in descending order so that the top five can be selected.
+- **Space:** `O(S)`. The five aggregate dictionaries plus the list of `(speaker, time)` tuples used for sorting all scale with the number of unique speakers. The file itself is streamed rather than loaded into memory.
 
-### 11.2. Data Validation (`csv_validation.py`)
+> **Practical impact:** For typical meetings `S` is small (under twenty speakers), so the quadratic sort is not a runtime concern. The linear file scan `O(N)` dominates the wall-clock cost in practice. A future refactor to `sorted(...)` would reduce the worst case to `O(S log S)` without changing observable output.
+
+### 11.2 CSV Validation — `csv_validation.py`
+
+#### `validate_timestamp(value, field_name, row_num)`
+
+- **Time:** `O(1)`. `datetime.fromisoformat` parses a fixed-format string in constant time.
+- **Space:** `O(1)`.
+
+#### `validate_numeric_positive(value, field_name, row_num)`
+
+- **Time:** `O(1)`. One `float()` cast and one comparison.
+- **Space:** `O(1)`.
+
+#### `validate_boolean(value, field_name, row_num)`
+
+- **Time:** `O(1)`. Two `isinstance` checks and a membership test against a 2-element list.
+- **Space:** `O(1)`.
 
 #### `validate_csv_file(file_path)`
 
-- **Time Complexity:** $O(N)$
-  - The script reads through the file line-by-line exactly once for all $N$ rows.
-  - For each row, it executes a series of field-level helper validations (`validate_timestamp`, `validate_numeric_positive`, and `validate_boolean`). Each helper completes in $O(1)$ constant time.
-  - Printing the final results takes $O(E)$ time, where $E$ is the total number of validation errors caught ($E \le 6N$).
-- **Space Complexity:** $O(E)$ (Up to $O(N)$ in the worst case)
-  - The input stream consumes $O(1)$ auxiliary memory.
-  - The primary memory consumer is the `validation_errors` list. In a valid file layout, space complexity is $O(1)$. If every column in every row encounters a failure, it scales linearly to $O(N)$.
+Applies the three helper functions to every row of the enriched CSV.
 
----
+- **Time:** `O(N)`. Six `O(1)` validations per row, repeated `N` times.
+- **Space:** `O(E)`. The `validation_errors` list accumulates at most six entries per row, resulting in `O(1)` space for a clean file and `O(N)` space if every field fails. The file itself is streamed.
 
-### 11.3. Feature Enrichment (`feature_enrichement.py`)
+### 11.3 Feature Enrichment — `feature_enrichement.py`
 
-#### Sequential Processing Pipeline
+#### Main script execution
 
-- **Time Complexity:** $O(N \cdot L)$
-  - The pipeline iterates through all $N$ rows in the input file.
-  - For each record, it runs string-based checks (`'?' in text`, `.split()`, and `len()`) to enrich the dataset. These operations run in time proportional to the character length of the text string, $L$.
-  - Assuming an upper-bound constant for speech row length ($L$), the operational time simplifies to a linear $O(N)$.
-- **Space Complexity:** $O(S)$
-  - Input and output files are read and written continuously line-by-line, keeping memory usage minimal.
-  - An auxiliary tracking dictionary (`counter`) dynamically grows to match the number of unique speakers $S$ to compute the sequential speaker turn counts.
+The enrichment logic runs at module top level rather than inside a callable function; it executes as soon as the module is imported. The block opens both files, iterates through the input rows, derives the five new columns, and writes each enriched row to the output file.
 
----
+- **Time:** `O(N × L)`. The dominant per-row operations are `'?' in text` and `text.split()`, both of which scan the string in time proportional to its length. When utterances are short, `L` is effectively constant and the complexity reduces to `O(N)`.
+- **Space:** `O(S)`. The reader and writer process one row at a time; only the per-speaker `counter` dictionary grows with input size.
 
-### 11.4. Transcription and LLM Pipeline (`gemini_vosk.py`)
+### 11.4 Recording and Cleanup — `gemini_vosk.py`
 
 #### `correct_all_text(texts)`
 
-- **Time Complexity:** $O(L_{\text{total}}) + O(\text{API Call Latency})$
-  - Constructing the indexed prompt string via list comprehensions requires iterating through all texts, taking linear time relative to the total length of all characters combined ($L_{\text{total}}$).
-  - The transcript post-processing relies on a remote generative AI model, meaning local execution blocks on network I/O and external LLM inference processing.
-- **Space Complexity:** $O(L_{\text{total}})$
-  - Requires holding the full concatenated payload prompt string and the corresponding text responses in memory concurrently before parsing.
+Bundles every raw transcript into a single Gemini API call.
+
+- **Time:** `O(L_total + R)`, where `L_total` is the combined length of all transcripts and `R` is the response length. Local work — constructing the numbered prompt and parsing the response — is linear in the input size. The API round-trip itself is network-bound and is excluded from the algorithmic analysis.
+- **Space:** `O(L_total + R)`. The numbered prompt and the response are held in memory concurrently.
 
 #### `realtime_transcription()`
 
-- **Time Complexity:** $O(T)$
-  - Runs an asynchronous thread loop that blocks on audio hardware inputs. The audio data buffers are fed into a local Vosk Kaldi speech recognizer via `AcceptWaveform()`.
-  - Speech processing workloads scale linearly with respect to the total tracking duration of the audio segment ($T$) in seconds.
-- **Space Complexity:** $O(W)$
-  - The sound processing streaming queue acts as a sliding-window buffer requiring $O(1)$ constant space.
-  - The continuous string collection array (`full_text`) grows linearly over time with respect to the total number of transcribed characters ($W$).
+Records from the microphone until `Ctrl+C` is pressed, then returns the joined transcript.
 
-#### `main()` Execution Flow (Pandas Integration)
+- **Time:** `O(d + L²)` in the worst case, where `d` is the number of audio blocks processed and `L` is the total transcribed length. Each block is processed by Vosk in constant time from the Python side. Text fragments are accumulated using `full_text += text + " "` within the loop. Because Python strings are immutable, each `+=` operation allocates a new string and copies the existing contents, giving quadratic worst-case cost in the total length. In practice the cost is closer to linear for short transcripts due to CPython implementation details, but the asymptotic worst case remains `O(L²)`.
+- **Space:** `O(d + L)`. The audio queue holds up to `d` pending blocks; the accumulated `full_text` string contains `L` characters in total.
 
-- **Time Complexity:** $O(N \cdot L) + O(\text{API Call Latency})$
-  - Unlike the streaming implementations found in other modules, this script uses `pd.read_csv()` to load the complete history dataset into memory, taking $O(N \cdot L)$ time.
-  - Splitting and mapping the structured Gemini array outputs back to matching data frames scales linearly with the size of the file.
-- **Space Complexity:** $O(N \cdot L)$
-  - Loads the entire transcription matrix into an in-memory Pandas `DataFrame` object structure rather than operating row-by-row, requiring memory directly proportional to the size of the dataset.
+> **Practical impact:** For meetings consisting of short utterances the quadratic behaviour is rarely observed. For long, uninterrupted recordings, replacing `+=` with a list-and-join pattern would reduce the worst case to `O(L)` without affecting the returned string.
 
-### 11.5. Complexity Summary Table
+#### `save_to_csv(data)`
 
-Below is a quick reference summary of the computational complexity for each primary function across the system.
+Appends a single row to the output CSV.
 
-- Let **$N$** = Total number of rows (speach) in the CSV file.
-- Let **$S$** = Number of unique speakers/participants ($S \le N$).
-- Let **$E$** = Total number of validation errors caught ($E \le 6N$).
-- Let **$L$** = Character length of text strings or speech rows.
-- Let **$T$** = Total runtime duration of the live audio stream in seconds.
-- Let **$W$** = Total word/character count of completed local transcript text.
+- **Time:** `O(1)` (assuming a bounded row size).
+- **Space:** `O(1)`.
 
-| Script / Context              | Function or Process               | Time Complexity                               | Space Complexity      | Notes / Bottlenecks                                                                          |
-| :---------------------------- | :-------------------------------- | :-------------------------------------------- | :-------------------- | :------------------------------------------------------------------------------------------- |
-| **analytics_stats_output.py** | `analyze_meeting_data(file_path)` | $O(N + S^2)$                                  | $O(S)$                | Streams data line-by-line; $O(S^2)$ is introduced by the custom bubble sort implementation.  |
-| **csv_validation.py**         | `validate_csv_file(file_path)`    | $O(N)$                                        | $O(E)$                | Processes row-by-row. Worst-case memory is $O(N)$ if every check fails on every row.         |
-|                               | `validate_timestamp`              | $O(1)$                                        | $O(1)$                | Built-in string format parsing.                                                              |
-|                               | `validate_numeric_positive`       | $O(1)$                                        | $O(1)$                | Simple float type casting and boundary checks.                                               |
-|                               | `validate_boolean`                | $O(1)$                                        | $O(1)$                | Exact string set matching.                                                                   |
-| **feature_enrichement.py**    | Script Pipeline Execution         | $O(N \cdot L)$                                | $O(S)$                | Line-by-line streaming. String splitting scales with sentence word length $L$.               |
-| **gemini_vosk.py**            | `correct_all_text(texts)`         | $O(L_{\text{total}}) + O(\text{API Latency})$ | $O(L_{\text{total}})$ | Bound by prompt formatting overhead and remote network I/O block times.                      |
-|                               | `realtime_transcription()`        | $O(T)$                                        | $O(W)$                | CPU-bound to acoustic length processing. Running string accumulates tokens over time.        |
-|                               | `save_to_csv(data)`               | $O(1)$                                        | $O(1)$                | Constant time direct append-to-file operation.                                               |
-|                               | `main()` Pipeline (Pandas flow)   | $O(N \cdot L) + O(\text{API Latency})$        | $O(N \cdot L)$        | **Memory Bottleneck**: Loads full datasets into an in-memory DataFrame instead of streaming. |
+#### `main()`
+
+Drives the record-and-quit loop, then batch-corrects all captured transcripts.
+
+- **Time:** `O(M × T_record + N + L_total)`. The record loop iterates `M` times, each iteration consuming one recording's duration. After the loop, `pd.read_csv` is `O(N)`, `correct_all_text` is `O(L_total)`, splitting the numbered response from Gemini is `O(L_total)`, and `to_csv` is `O(N × k)` for some bounded row size `k`.
+- **Space:** `O(N × k)`. Unlike the streaming functions in other modules, this one loads the entire CSV into a Pandas DataFrame. This is the memory bottleneck of the pipeline; for very large transcripts, refactoring to a streaming update would be advisable.
+
+### 11.5 Test Harness — `pipeline_unit_testing.py`
+
+#### `NonClosingStringIO.close()` and `force_close()`
+
+- **Time and Space:** `O(1)` each. The `close()` method intentionally performs no action so that `with` blocks in the code under test cannot discard the buffer; `force_close()` provides the manual cleanup path.
+
+#### `PipelineTestResult.__init__` and `addSuccess(test)`
+
+- **Time:** `O(1)` per call. Recording a success consists of a fixed-size dictionary lookup and a list append.
+- **Space:** `O(1)` per call. The `successes` list grows to `O(t)` over the course of a complete run.
+
+#### `TestPipeline` — validator tests
+
+The three csv_validation tests (`test_validate_timestamp_formats`, `test_validate_boolean_formats`, `test_numeric_positive_boundaries`) each execute a small number of `O(1)` calls against fixed input strings.
+
+- **Time:** `O(1)`. **Space:** `O(1)`.
+
+#### `TestPipeline.test_feature_enrichment_logic`
+
+Patches `builtins.open` with two `NonClosingStringIO` buffers, then reloads `feature_enrichement` so that its top-level enrichment code runs against the mocked files.
+
+- **Time:** `O(P + m × L)`. The `importlib.reload` operation incurs a one-time `O(P)` cost to re-parse and re-execute the module's source; the enrichment then runs in `O(m × L)` against the mocked rows.
+- **Space:** `O(m × L)`. Both mock buffers retain the CSV content in memory.
+
+#### `TestPipeline.test_analytics_data_reporting`
+
+Patches `builtins.open`, redirects `sys.stdout`, executes `analyze_meeting_data`, and asserts on the captured report.
+
+- **Time:** `O(m + S² + o)`. The analytics function dominates — its `O(S²)` bubble sort is the largest term for any non-trivial speaker count, although for the three-row mocked CSV used in the test it remains effectively constant. The substring `assertIn` checks against the captured output are `O(o)` each.
+- **Space:** `O(m × L + o)`. The mocked CSV and the captured stdout buffer are the two primary memory consumers.
+
+### 11.6 Summary Table
+
+| Module                      | Function                        | Time                            | Space             |
+| --------------------------- | ------------------------------- | ------------------------------- | ----------------- |
+| `analytics_stats_output.py` | `analyze_meeting_data`          | `O(N + S²)`                     | `O(S)`            |
+| `csv_validation.py`         | `validate_timestamp`            | `O(1)`                          | `O(1)`            |
+| `csv_validation.py`         | `validate_numeric_positive`     | `O(1)`                          | `O(1)`            |
+| `csv_validation.py`         | `validate_boolean`              | `O(1)`                          | `O(1)`            |
+| `csv_validation.py`         | `validate_csv_file`             | `O(N)`                          | `O(E)`            |
+| `feature_enrichement.py`    | Top-level script execution      | `O(N × L)`                      | `O(S)`            |
+| `gemini_vosk.py`            | `correct_all_text`              | `O(L_total + R)`                | `O(L_total + R)`  |
+| `gemini_vosk.py`            | `realtime_transcription`        | `O(d + L²)` worst case          | `O(d + L)`        |
+| `gemini_vosk.py`            | `save_to_csv`                   | `O(1)`                          | `O(1)`            |
+| `gemini_vosk.py`            | `main`                          | `O(M × T_record + N + L_total)` | `O(N × k)`        |
+| `pipeline_unit_testing.py`  | `NonClosingStringIO.*`          | `O(1)`                          | `O(1)`            |
+| `pipeline_unit_testing.py`  | `PipelineTestResult.*`          | `O(1)` per call                 | `O(t)` cumulative |
+| `pipeline_unit_testing.py`  | validator tests (each)          | `O(1)`                          | `O(1)`            |
+| `pipeline_unit_testing.py`  | `test_feature_enrichment_logic` | `O(P + m × L)`                  | `O(m × L)`        |
+| `pipeline_unit_testing.py`  | `test_analytics_data_reporting` | `O(m + S² + o)`                 | `O(m × L + o)`    |
+
+### 11.7 Key Observations
+
+The pipeline is **linear in the number of utterances** for every stage that interacts with the CSV directly. Two implementations contain non-linear cost paths:
+
+1. **Bubble sort in `analyze_meeting_data`** (`O(S²)`). The hand-written nested-loop sort is asymptotically slower than necessary, but `S` is typically below twenty for meeting data so the practical runtime impact is negligible. Substituting Python's built-in `sorted(...)` would reduce the cost to `O(S log S)`.
+2. **String concatenation in `realtime_transcription`** (`O(L²)` worst case). The use of `full_text += text + " "` within the recording loop creates quadratic worst-case behaviour due to Python string immutability. For typical recording lengths the cost remains acceptable, but very long recordings would benefit from a list-and-join refactor.
+
+The memory bottleneck is `gemini_vosk.main()`, which loads the entire CSV into a Pandas DataFrame; every other stage processes data row-by-row.
+
+---
+
+## 12. Files Produced
+
+| File                            | Produced by                                    | Purpose                              |
+| ------------------------------- | ---------------------------------------------- | ------------------------------------ |
+| `group_transcript.csv`          | `gemini_vosk.py` (after renaming `OUTPUT_CSV`) | Raw and Gemini-corrected transcripts |
+| `group_transcript_enriched.csv` | `feature_enrichement.py`                       | Adds the five derived columns        |
+| Console report                  | `csv_validation.py`                            | Pass or fail summary                 |
+| Console report                  | `analytics_stats_output.py`                    | Per-speaker meeting analytics        |
+| Console report                  | `pipeline_unit_testing.py`                     | Per-test verdict table               |
+
+---
+
+## 13. Troubleshooting
+
+| Symptom                                       | Likely cause                                                | Resolution                                                                                                                        |
+| --------------------------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `ModuleNotFoundError: No module named 'vosk'` | `.venv` is not activated, or `pip install` has not been run | Activate `.venv` (section 7) and re-run `pip install -r requirements.txt`                                                         |
+| `KeyError: 'GEMINI_API_KEY'`                  | Environment variable is not set in the current shell        | Re-run the `export`, `$env:`, or `set` command from section 5. New VS Code terminals do not inherit unsaved environment variables |
+| PowerShell refuses to execute `Activate.ps1`  | Execution policy restriction                                | Run `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned` once, then restart the terminal                        |
+| `python: command not found` on macOS or Linux | Only `python3` is installed                                 | Use `python3` instead of `python`, or define an alias `python=python3` in the shell configuration file                            |
+| HTTP status `429` returned from Gemini        | Free-tier rate limit exceeded                               | Wait one minute, then retry. Consider increasing the batch size per call                                                          |
+| CSV displays incorrectly when opened in Excel | Locale uses `;` as the field separator                      | Use Data → "From Text/CSV" and explicitly select comma                                                                            |
+| `OSError: [Errno -9986]` from `sounddevice`   | macOS has not granted microphone permission                 | System Settings → Privacy & Security → Microphone → enable the relevant terminal application or VS Code                           |
