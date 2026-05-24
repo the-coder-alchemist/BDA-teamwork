@@ -1,0 +1,4 @@
+source_file,import_status,import_error,scope_type,scope_name,line_start,line_end,time_complexity_estimate,space_complexity_estimate,dominant_operations,confidence,notes
+analytics_stats_output.py,success,,module,<module>,1,117,O(1),O(1),,Medium,
+analytics_stats_output.py,success,,function,analyze_meeting_data,4,109,O(n^2),O(n),file/dataframe read at line 6; for-loop at line 17; for-loop at line 50; for-loop at line 62; for-loop at line 69; possible accumulation with += at line 70; for-loop at line 75; for-loop at line 76,Medium,n generally means rows/items read from the CSV or dataframe. Nested loops dominate the estimate. Repeated += accumulation may copy growing strings depending on runtime behavior.
+analytics_stats_output.py,success,,function,main,111,113,O(1),O(1),,Medium,

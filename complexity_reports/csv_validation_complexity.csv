@@ -1,0 +1,7 @@
+source_file,import_status,import_error,scope_type,scope_name,line_start,line_end,time_complexity_estimate,space_complexity_estimate,dominant_operations,confidence,notes
+csv_validation.py,success,,module,<module>,1,116,O(1),O(1),,Medium,
+csv_validation.py,success,,function,validate_timestamp,5,11,O(1),O(1),,Medium,
+csv_validation.py,success,,function,validate_numeric_positive,14,23,O(1),O(1),,Medium,
+csv_validation.py,success,,function,validate_boolean,26,33,O(1),O(n),,Medium,
+csv_validation.py,success,,function,validate_csv_file,36,99,O(n),O(n),file/dataframe read at line 42; for-loop at line 46; possible accumulation with += at line 47; for-loop at line 89,Medium-High,n generally means rows/items read from the CSV or dataframe. Repeated += accumulation may copy growing strings depending on runtime behavior.
+csv_validation.py,success,,function,main,103,112,O(1),O(1),,Medium,
