@@ -48,12 +48,6 @@ def analyze_meeting_data(file_path):
     Returns:
         None. Results are printed to standard output.
 
-    Complexity:
-        Time  - O(n + s log s), where n is the number of rows and s is the
-                number of unique speakers. The CSV pass is O(n) and the
-                ``sorted`` call is O(s log s).
-        Space - O(s) for the per-speaker aggregate dictionaries.
-
     Example:
         >>> analyze_meeting_data("group_transcript_enriched.csv")
         ==================================================
