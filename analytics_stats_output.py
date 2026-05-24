@@ -1,7 +1,67 @@
+
+"""
+Meeting Analytics Report Generator
+===================================
+
+Reads an enriched meeting transcript CSV and prints a human-readable report
+summarising who spoke most and least, who asked the most questions, total
+and average speaking time, the top five speakers by total time, and each
+speaker's average speech rate.
+
+Expected CSV columns:
+    name, num_words_in_text, has_question_mark, time_taken_sec, speech_rate_wps
+
+Usage:
+    Place an enriched transcript named ``group_transcript_enriched.csv`` in
+    the working directory and run::
+
+        python analytics_stats_output.py
+"""
+
+# Metadata
+__author__ = []
+__credits__ = ["Carys Williams","Gary Murphy", "William McKenna", "Mei Len Vorkel", "Samuel Weldemariam", "Toby Lock"]
+__version__ = "1.0.0"
+
+# Custom Academic Attribution Matrix
+__team__ = "The Pipeline"
+__module__ = "Big Data Analytics (BUCI065H7)"
+__assignment__ = "Assignment 1 - Startup Meeting Speech Analytics"
+
 import csv
 
 
 def analyze_meeting_data(file_path):
+    """
+    Aggregate per-speaker statistics from an enriched transcript and print a report.
+
+    The function performs a single streaming pass over the CSV to build five
+    dictionaries keyed by speaker name (word totals, question totals, speaking
+    time totals, and running sums/counts for speech rate). It then derives the
+    report from those aggregates.
+
+    Args:
+        file_path (str): Path to the enriched transcript CSV. The file must
+            contain the columns ``name``, ``num_words_in_text``,
+            ``has_question_mark``, ``time_taken_sec`` and ``speech_rate_wps``.
+
+    Returns:
+        None. Results are printed to standard output.
+
+    Complexity:
+        Time  - O(n + s log s), where n is the number of rows and s is the
+                number of unique speakers. The CSV pass is O(n) and the
+                ``sorted`` call is O(s log s).
+        Space - O(s) for the per-speaker aggregate dictionaries.
+
+    Example:
+        >>> analyze_meeting_data("group_transcript_enriched.csv")
+        ==================================================
+        Meeting Analytics Report
+        ==================================================
+        ...
+    """
+
     # Open the CSV file
     with open(file_path, 'r', encoding='utf-8') as file:
         reader = csv.DictReader(file)
@@ -109,6 +169,13 @@ def analyze_meeting_data(file_path):
     print("=" * 50)
 
 def main():
+    """
+    Entry point: run the analytics report against the default CSV path.
+
+    Edit ``file_path`` below if your enriched transcript is stored under a
+    different name or location.
+    """
+    
     file_path = "group_transcript_enriched.csv"
     analyze_meeting_data(file_path)
 

@@ -1,3 +1,38 @@
+"""
+Transcript Feature Enrichment
+==============================
+
+Reads the raw meeting transcript produced by ``gemini_vosk.py`` and writes 
+out an enriched copy with five additional columns derived from the cleaned
+``text`` field:
+
+    * ``has_question_mark`` - True if the text contains a "?" character
+    * ``num_words_in_text``  - whitespace-split word count
+    * ``text_size_chars``    - character length of the text
+    * ``speech_rate_wps``    - words per second, rounded to 2 decimals
+    * ``speaker_counter``    - the Nth utterance by this speaker (1-indexed)
+
+The script streams the file row-by-row, so memory use stays flat regardless
+of transcript length.
+
+Usage:
+    Place ``group_transcript.csv`` in the working directory and run::
+
+        python feature_enrichement.py
+
+    The enriched output is written to ``group_transcript_enriched.csv``.
+"""
+
+# Metadata
+__author__ = []
+__credits__ = ["Carys Williams","Gary Murphy", "William McKenna", "Mei Len Vorkel", "Samuel Weldemariam", "Toby Lock"]
+__version__ = "1.0.0"
+
+# Custom Academic Attribution Matrix
+__team__ = "The Pipeline"
+__module__ = "Big Data Analytics (BUCI065H7)"
+__assignment__ = "Assignment 1 - Startup Meeting Speech Analytics"
+
 # Read and write
 import csv 
 
