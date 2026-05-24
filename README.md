@@ -73,16 +73,18 @@ set GEMINI_API_KEY="PASTE_YOUR_KEY"
 ```
 
 Two quick details to keep in mind:
-Temporary Nature: This only sets the key for your current Command Prompt session. If you close the window, you will need to run it again.
+Temporary Nature:
+This only sets the key for your current Command Prompt session. If you close the window, you will need to run it again.
 
-Making it permanent: If you want Command Prompt to remember your key every time you open it, use setx instead:
+Making it permanent:
+If you want Command Prompt to remember your key every time you open it, use setx instead:
 
 setx GEMINI_API_KEY "PASTE_YOUR_KEY"
 
 _(Note: After running `setx`, you will need to restart VS Code or open a new terminal window for the change to take effect)._
 
 > [!TIP]
-> Gemini is free to use (at the time of this writing), but there are some limits.The code provided in this repository in the 'gemini_vosk.py' file, numbers each text item and sends them to Gemini in a single prompt to minimize API calls, and returns the model's corrected version. You can also use an OPENAI_API_KEY, but you will need to change the os.environ["GEMINI_API_KEY"]
+> Gemini is free to use (at the time of this writing), but there are some limits.The code provided in this repository in the (`gemini_vosk.py`) file numbers each text item and sends them to Gemini in a single prompt to minimize API calls, and returns the model's corrected version. You can also use an OPENAI_API_KEY, but you will need to change the os.environ["GEMINI_API_KEY"]
 
 ```python
 #gemini transcript clean
@@ -191,7 +193,7 @@ Deactivate it when needed:
 deactivate
 ```
 
-Now check the `requirements.txt` file. It contains the dependencies we need:
+The `requirements.txt` file contains the dependencies you will need:
 
 ```txt
 google-auth==2.50.0
@@ -238,7 +240,7 @@ python3 -m pip install --upgrade pip
 ```
 
 Check the output to ensure everything installed successfully.
-You are now ready to proceed. You can use the `clear` command to clear the terminal (Windows CMD = cls). Try it out.
+You are now ready to proceed. You can use the `clear` command to clear the terminal (Windows command prompt CMD = cls).
 
 ---
 
@@ -286,6 +288,21 @@ Python logic, not AI, is used to add calculated columns.
 | `speaker_counter` | Running count for each speaker: first turn is 1, second turn is 2, etc. |
 
 - Reads the corrected log data and applies programmatic rules to output a performance-optimized output file (`group_transcript_enriched.csv`).
+  _(Note: Ensure that you change the output variable to output to the csv file shown above before running the code which creates the file when you are past the testing. The subsequent files need the csv file to be named as above to work - or you will need to find and change this name in all the files)._
+
+```python
+#Configuring Model
+...
+OUTPUT_CSV = "test_transcript.csv"
+...
+
+# Change to this before running the gemini_vosk.py file
+#Configuring Models
+...
+OUTPUT_CSV = "group_transcript_enriched.csv"
+...
+```
+
 - Calculations bypass deep models to avoid unnecessary AI processing costs:
   - **`has_question_mark`**: Triggers a boolean `True`/`False` check based on trailing syntax.
   - **`num_words_in_text`**: Computes standard splits over whitespace.
@@ -418,6 +435,13 @@ Pipeline Verification Process Complete.
 ## 11. Complexity Analysis
 
 This section outlines the Time and Space complexity of the primary functions and processing pipelines implemented across the scripts.
+
+- Let **$N$** = Total number of rows (speach) in the CSV file.
+- Let **$S$** = Number of unique speakers/participants ($S \le N$).
+- Let **$E$** = Total number of validation errors caught ($E \le 6N$).
+- Let **$L$** = Character length of text strings or speech rows.
+- Let **$T$** = Total runtime duration of the live audio stream in seconds.
+- Let **$W$** = Total word/character count of completed local transcript text.
 
 ### 11.1. Meeting Analytics (`analytics_stats_output.py`)
 
