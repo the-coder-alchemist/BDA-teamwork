@@ -4,7 +4,7 @@
 
 ## 1. Project Overview
 
-This repository contains a data analytics pipeline designed for team meeting speech processing. The application records microphone audio during real-time conversations, streams transcription tasks through an open-source speech-to-text model (Vosk), cleans the resulting transcript via an LLM (Gemini), calculates per-speaker speaking-behaviour statistics with native Python, validates the dataset against a schema, and prints a finalised analytics report.
+This repository contains a data analytics pipeline designed for team meeting speech processing. The application records microphone audio during real-time conversations, streams transcription tasks through an open-source speech-to-text model (Vosk), cleans the resulting transcript via an LLM (Gemini), calculates statistics with native Python for each speaker, validates the dataset against a schema, and prints a finalised analytics report.
 
 The architecture is designed so that any user can clone this repository, install the required libraries, record their own meeting, and produce a validated, enriched CSV together with a summary report.
 
