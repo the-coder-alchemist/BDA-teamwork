@@ -1,3 +1,40 @@
+"""
+Pipeline Unit Test Suite
+=========================
+
+Verifies that the four-stage meeting-transcription pipeline behaves
+correctly:
+
+    1. ``csv_validation``         - row-level format checks
+    2. ``feature_enrichement``    - per-row derived columns
+    3. ``analytics_stats_output`` - per-speaker aggregate report
+    4. ``gemini_vosk``            - imported only to confirm it loads
+
+The harness uses Python's standard ``unittest`` framework but customises
+two pieces:
+
+    * ``PipelineTestResult`` - records *successful* tests (and the source
+      file they target) in addition to the usual failure/error tracking.
+    * ``PipelineTestRunner`` - a thin subclass that wires the custom
+      result class into ``TextTestRunner``.
+
+After the suite finishes, the ``__main__`` block prints a tabular report
+of every test, the pipeline file it exercised, and the verdict.
+
+Usage:
+    python pipeline_unit_testing.py
+"""
+
+# Metadata
+__author__ = []
+__credits__ = ["Carys Williams","Gary Murphy", "William McKenna", "Mei Len Vorkel", "Samuel Weldemariam", "Toby Lock"]
+__version__ = "1.0.0"
+
+# Custom Academic Attribution Matrix
+__team__ = "The Pipeline"
+__module__ = "Big Data Analytics (BUCI065H7)"
+__assignment__ = "Assignment 1 - Startup Meeting Speech Analytics"
+
 import io
 import sys
 import unittest
@@ -9,22 +46,101 @@ import csv_validation, analytics_stats_output, feature_enrichement, gemini_vosk
 
 # Custom stream wrapper to prevent the 'with' statement from killing our mock object data access
 class NonClosingStringIO(io.StringIO):
+    """
+    A ``StringIO`` subclass whose ``close()`` is a no-op.
+
+    The code under test wraps file objects in ``with open(...)`` blocks,
+    which automatically close the file when the block exits. For a real
+    file that is exactly what we want, but when the "file" is a mock
+    ``StringIO``, closing it discards the captured bytes before the test
+    can read them back. Overriding ``close()`` to do nothing keeps the
+    buffer alive across the ``with`` block. The original close behaviour
+    is still available via ``force_close()`` for explicit cleanup.
+
+    Example:
+        >>> buf = NonClosingStringIO()
+        >>> with buf as f:                 # 'with' would normally close it
+        ...     f.write("hello")
+        5
+        >>> buf.seek(0)
+        0
+        >>> buf.read()                     # data is still available
+        'hello'
+        >>> buf.force_close()              # now actually free it
+    """
+
     def close(self):
+        """
+        No-op override.
+
+        Called automatically by ``with`` blocks in the code under test;
+        deliberately does nothing so that the buffer's contents remain
+        accessible after the block exits.
+        """
+
         # Do absolutely nothing when context manager calls .close()
         pass
         
     def force_close(self):
+        """
+        Truly close the underlying buffer.
+
+        Call this from test teardown when the buffer is no longer needed,
+        so its memory can be released.
+        """
+
         # Allow cleanup manually if needed later
         super().close()
 
 
 # Custom Test Result Tracker to gather metadata dynamically during execution
 class PipelineTestResult(unittest.TextTestResult):
+    """
+    Custom ``TestResult`` that remembers successful tests, not just failures.
+
+    The default ``unittest.TextTestResult`` keeps lists of ``failures`` and
+    ``errors`` but only counts successes. This subclass additionally stores,
+    for each passing test, a tuple of:
+
+        (method_name, docstring, target_source_file)
+
+    so that the post-run report in ``__main__`` can show *which* tests
+    passed and *which file* each was checking.
+
+    Attributes:
+        successes (list[tuple[str, str, str]]): One entry per passing test.
+    """
+
     def __init__(self, stream, descriptions, verbosity):
+        """
+        Initialise the parent result, then add an empty ``successes`` list.
+
+        Args:
+            stream: The output stream unittest writes progress to.
+            descriptions (bool): Whether to print test descriptions.
+            verbosity (int): 0 = quiet, 1 = dots, 2 = one line per test.
+        """
+
         super().__init__(stream, descriptions, verbosity)
         self.successes = []
 
     def addSuccess(self, test):
+        """
+        Record a passing test along with its docstring and target file.
+
+        Called by the runner whenever a test finishes without raising. The
+        ``file_mapping`` dictionary links each test method name to the
+        pipeline source file it exercises; tests not in the mapping are
+        recorded as ``"Unknown Source Module"``.
+
+        Args:
+            test (unittest.TestCase): The test instance that just passed.
+
+        Side effects:
+            Appends a ``(method_name, docstring, target_file)`` tuple to
+            ``self.successes``.
+        """
+
         super().addSuccess(test)
         # Extract function name and the target file being evaluated
         method_name = test._testMethodName
@@ -43,17 +159,38 @@ class PipelineTestResult(unittest.TextTestResult):
 
 
 class PipelineTestRunner(unittest.TextTestRunner):
-    """Custom runner to hook up our tracking reporter class."""
+    """
+    ``TextTestRunner`` subclass that produces ``PipelineTestResult`` objects.
+
+    Setting ``resultclass`` is the documented way to plug a custom result
+    type into the standard runner. Apart from that, behaviour is identical
+    to ``unittest.TextTestRunner``.
+    """
     resultclass = PipelineTestResult
 
 
 class TestPipeline(unittest.TestCase):
+    """
+    Test cases covering the four pipeline stages.
+
+    Each test is grouped under a comment banner naming the source file it
+    targets. The validator tests use direct calls; the enrichment and
+    analytics tests use ``unittest.mock.patch`` on ``builtins.open`` to
+    feed mocked CSV data without touching the disk.
+    """
 
     # ---------------------------------------------------------
     # 1. FILE STRUCTURAL INTEGRITY CHECKS (csv_validation.py)
     # ---------------------------------------------------------
     def test_validate_timestamp_formats(self):
-        """Ensure ISO timestamps pass and malformed ones fail."""
+        """
+        Ensure ISO timestamps pass and malformed ones fail.
+
+        Verifies that ``validate_timestamp`` accepts a well-formed ISO 8601
+        datetime and rejects a date written in ``DD-MM-YYYY`` form, returning
+        a helpful error message that mentions "not a valid datetime".
+        """
+
         # Valid ISO format
         is_valid, _ = csv_validation.validate_timestamp("2026-05-23T14:30:00", "timestamp", 1)
         self.assertTrue(is_valid)
@@ -64,7 +201,14 @@ class TestPipeline(unittest.TestCase):
         self.assertIn("not a valid datetime", err)
 
     def test_validate_boolean_formats(self):
-        """Ensure boolean validations cleanly capture various cases."""
+        """
+        Ensure boolean validation accepts known forms and rejects others.
+
+        Confirms that ``validate_boolean`` treats ``"TRUE"``, ``"false"``
+        and the native ``True`` as valid, and rejects ``"Yes"`` with a
+        message that mentions "not a boolean value".
+        """
+
         # Valid variations
         self.assertTrue(csv_validation.validate_boolean("TRUE", "has_question", 1)[0])
         self.assertTrue(csv_validation.validate_boolean("false", "has_question", 2)[0])
@@ -79,7 +223,18 @@ class TestPipeline(unittest.TestCase):
     # 2. BOUNDARY VALUE CRITERIA VERIFICATION (csv_validation.py)
     # ---------------------------------------------------------
     def test_numeric_positive_boundaries(self):
-        """Verify numeric boundaries (> 0 constraint)."""
+        """
+        Verify the ``> 0`` constraint at its boundary cases.
+
+        Checks four points:
+            * ``"10.5"`` - a normal positive value, should pass.
+            * ``"0"``    - the exact boundary, should fail because the
+              constraint is strictly greater than zero.
+            * ``"-1"``   - clearly negative, should fail.
+            * ``"abc"``  - non-numeric, should fail with a "not numeric"
+              message rather than a comparison-based message.
+        """
+
         # Upper Boundary (Normal expected positive value)
         self.assertTrue(csv_validation.validate_numeric_positive("10.5", "time_taken_sec", 1)[0])
 
@@ -103,7 +258,30 @@ class TestPipeline(unittest.TestCase):
     # ---------------------------------------------------------
     @patch("builtins.open")
     def test_feature_enrichment_logic(self, mock_file_open):
-        """Test feature enrichment equations and row modification."""
+        """
+        Test feature-enrichment equations and per-row column additions.
+
+        Replaces ``builtins.open`` with a router that returns two
+        ``NonClosingStringIO`` buffers - one preloaded with three mock
+        input rows, one empty for capturing output. Reloads
+        ``feature_enrichement`` so its top-level code runs against the
+        mocks, then verifies:
+
+            * the new columns ``has_question_mark`` and ``speech_rate_wps``
+              appear in the header row
+            * Alice's first row produces ``"1.0"`` words per second
+              (2 words / 2.0 seconds)
+            * Alice's *second* row is correctly tagged as her 2nd
+              utterance via the ``speaker_counter`` column
+
+        Compatibility note:
+            This test assumes ``feature_enrichement.py`` performs the
+            enrichment as a top-level side effect of being imported. If
+            the enrichment is moved into a function behind an
+            ``if __name__ == "__main__"`` guard, this test must call
+            that function explicitly instead of relying on the reload.
+        """
+
         # 1. Raw Mock Data simulating group_transcript.csv
         csv_input = (
             "name,time_taken_sec,text\n"
@@ -118,6 +296,8 @@ class TestPipeline(unittest.TestCase):
         
         # 3. Smart side-effect router function
         def open_router(filename, *args, **kwargs):
+            """Return the output buffer for the enriched path, input buffer otherwise."""
+
             if "group_transcript_enriched.csv" in filename:
                 return mock_outfile
             else:
@@ -159,7 +339,23 @@ class TestPipeline(unittest.TestCase):
     # ---------------------------------------------------------
     @patch("builtins.open")
     def test_analytics_data_reporting(self, mock_file_open):
-        """Verify bubble-sorting metrics and text aggregation output."""
+        """
+        Verify bubble-sorting metrics and text aggregation output.
+        Verify per-speaker aggregation and the sorted top-speaker output.
+
+        Feeds ``analyze_meeting_data`` a mocked enriched CSV with three
+        rows (Alice twice, Bob once) by patching ``builtins.open`` and
+        redirecting ``sys.stdout`` to a buffer. Then checks the captured
+        report contains the expected aggregates:
+
+            * Alice has the most words (1 + 5 = 6)
+            * Bob has the fewest words (2)
+            * Total speaking time is 35.0 seconds (10 + 5 + 20)
+            * Alice asked the only question
+            * The sort places Alice (30.00s) above Bob (5.00s) in the
+              "top speakers by total time" section
+        """
+
         # Simulated Enriched Data
         enriched_mock_csv = (
             "timestamp,name,time_taken_sec,text,has_question_mark,num_words_in_text,text_size_chars,speech_rate_wps,speaker_counter\n"
