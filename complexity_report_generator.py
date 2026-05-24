@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Generate one CSV complexity report per Python file listed in the TARGET_FILES constant. WARNING: Do not attempt to include this file i.e. the complexity report generator, in the TARGET_FILES list. It will result in an infinite loop.
 
@@ -33,7 +35,7 @@ __team__ = "The Pipeline"
 __module__ = "Big Data Analytics (BUCI065H7)"
 __assignment__ = "Assignment 1 - Startup Meeting Speech Analytics"
 
-from __future__ import annotations
+
 
 import ast
 import csv
