@@ -39,11 +39,84 @@ python3 --version
 
 On Windows, you can also run:
 
-```powershell (or CMD)
+```powershell (or command prompt CMD)
 python3 --version
 ```
 
-## 4. Basics you should know
+## 4. Create API key (free)
+
+Go to Google AI Studio, login using your gmail account and create an API key:
+
+- https://aistudio.google.com/app/api-keys
+- Add a name (or keep the default) and choose `Default Gemini Project`.
+- Create a key and keep it private.
+- Copy the API key (for example, `AIza...`).
+
+## 5. Set API key in terminal
+
+Return to your Visual Studio Code terminal. On macOS/Linux, run the following command (replace with your API key):
+
+```bash
+export GEMINI_API_KEY="PASTE_YOUR_KEY"
+```
+
+On Windows PowerShell:
+
+```powershell
+$env:GEMINI_API_KEY="PASTE_YOUR_KEY"
+```
+
+On Windows Command Prompt (CMD):
+
+```Command Prompt
+set GEMINI_API_KEY="PASTE_YOUR_KEY"
+```
+
+Two quick details to keep in mind:
+Temporary Nature: This only sets the key for your current Command Prompt session. If you close the window, you will need to run it again.
+
+Making it permanent: If you want Command Prompt to remember your key every time you open it, use setx instead:
+
+setx GEMINI_API_KEY "PASTE_YOUR_KEY"
+
+_(Note: After running `setx`, you will need to restart VS Code or open a new terminal window for the change to take effect)._
+
+> [!TIP]
+> Gemini is free to use (at the time of this writing), but there are some limits.The code provided in this repository in the 'gemini_vosk.py' file, numbers each text item and sends them to Gemini in a single prompt to minimize API calls, and returns the model's corrected version. You can also use an OPENAI_API_KEY, but you will need to change the os.environ["GEMINI_API_KEY"]
+
+```python
+#gemini transcript clean
+def correct_all_text(texts):
+    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+    ...
+
+#OpenAI transcript clean
+def correct_all_text(texts):
+    client = genai.Client(api_key=os.environ["OPENAI_API_KEY"])
+    ...
+```
+
+**Test key is set**
+
+Run this quick check in your terminal:
+
+```bash
+python3 -c 'import os; k=os.getenv("GEMINI_API_KEY"); print("GEMINI_API_KEY set:", bool(k)); print("Key length:", len(k) if k else 0)'
+```
+
+If `GEMINI_API_KEY set: True` appears and key length is greater than 0, your environment variable is working. Clear your terminal using `clear`, and let's proceed.
+
+**Limits note**
+
+Google AI Studio is free, but it has usage limits (typically 5-15 requests per minute, depending on the model).
+
+> [!TIP]
+>
+> Limits depend on model and tier, and can change over time.
+>
+> Check the latest limits before running: https://ai.google.dev/gemini-api/docs/quota. If you exceed limits, you may receive `429` errors until quota resets.
+
+## 6. Basics you should know
 
 - `Python`: the programming language, not the snake 🐍.
 
@@ -75,7 +148,7 @@ Get-Location
 cd ..
 ```
 
-## 5. Create and manage a virtual environment
+## 7. Create and manage a virtual environment
 
 You will need a virtual environment to install the required packages.
 
@@ -149,7 +222,7 @@ websockets==16.0
 >
 > A **`requirements.txt`** file lists all Python packages a project needs. It helps everyone recreate the same environment. Pin exact versions when reproducibility is critical.
 
-## 6. Install dependencies
+## 8. Install dependencies
 
 Activate `.venv` again and install dependencies:
 
@@ -169,7 +242,7 @@ You are now ready to proceed. You can use the `clear` command to clear the termi
 
 ---
 
-## 7. Pipeline Execution Steps
+## 9. Pipeline Execution Steps
 
 The analytics pipeline contains the following algorithmic stages:
 
@@ -288,11 +361,11 @@ Toby Lock average speech rate: 1.83 words/second
 
 ---
 
-## 8. Meeting Analytics Pipeline Test Suite (`test_pipeline_enhanced.py`)
+## 10. Meeting Analytics Pipeline Test Suite (`test_pipeline_enhanced.py`)
 
 This automated test suite provides testing and pipeline integrity checks for the conversational data processing pipeline. It utilizes virtualized in-memory file routing (`io.StringIO`) and function mocking (`unittest.mock.patch`) to evaluate file structural constraints, edge-case mathematical data updates, and report generation accuracy without modifying production data files.
 
-### 8.1 Monitored Modules & Files Under Test
+### 10.1 Monitored Modules & Files Under Test
 
 The script actively orchestrates unit tests and behavioural validation across the following pipeline assets:
 
@@ -309,7 +382,7 @@ The script actively orchestrates unit tests and behavioural validation across th
 - **`gemini_vosk.py`**
   - Imported into the pipeline workspace scope to ensure architectural integration, dependencies, and environment configurations resolve correctly during automated testing loops.
 
-### 8.2 Execution Outputs
+### 10.2 Execution Outputs
 
 Console-based **Pipeline Integrity & Analytics Report**, detailing every individual test function name, its specific architectural file target, and the final verification verdict (`PASS` or `FAIL`).
 
@@ -342,11 +415,11 @@ Pipeline Verification Process Complete.
 
 ---
 
-## 9. Complexity Analysis
+## 11. Complexity Analysis
 
 This section outlines the Time and Space complexity of the primary functions and processing pipelines implemented across the scripts.
 
-### 9.1. Meeting Analytics (`analytics_stats_output.py`)
+### 11.1. Meeting Analytics (`analytics_stats_output.py`)
 
 #### `analyze_meeting_data(file_path)`
 
@@ -361,7 +434,7 @@ This section outlines the Time and Space complexity of the primary functions and
 
 ---
 
-### 9.2. Data Validation (`csv_validation.py`)
+### 11.2. Data Validation (`csv_validation.py`)
 
 #### `validate_csv_file(file_path)`
 
@@ -375,7 +448,7 @@ This section outlines the Time and Space complexity of the primary functions and
 
 ---
 
-### 9.3. Feature Enrichment (`feature_enrichement.py`)
+### 11.3. Feature Enrichment (`feature_enrichement.py`)
 
 #### Sequential Processing Pipeline
 
@@ -389,7 +462,7 @@ This section outlines the Time and Space complexity of the primary functions and
 
 ---
 
-### 9.4. Transcription and LLM Pipeline (`gemini_vosk.py`)
+### 11.4. Transcription and LLM Pipeline (`gemini_vosk.py`)
 
 #### `correct_all_text(texts)`
 
@@ -416,7 +489,7 @@ This section outlines the Time and Space complexity of the primary functions and
 - **Space Complexity:** $O(N \cdot L)$
   - Loads the entire transcription matrix into an in-memory Pandas `DataFrame` object structure rather than operating row-by-row, requiring memory directly proportional to the size of the dataset.
 
-### 9.5. Complexity Summary Table
+### 11.5. Complexity Summary Table
 
 Below is a quick reference summary of the computational complexity for each primary function across the system.
 
