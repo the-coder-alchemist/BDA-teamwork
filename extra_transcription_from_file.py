@@ -1,4 +1,4 @@
-'''
+
 def transcribe_file(file_path):
     wf = wave.open(file_path, "rb")
     recognizer = KaldiRecognizer(model, wf.getframerate())
@@ -13,7 +13,6 @@ def transcribe_file(file_path):
     return final_result.get("text", ""), duration
 
 
-elif mode == 'f':
-    path = input("Enter file path to .wav file:")
-    raw_text,duration = transcribe_file(path)
-'''
+# elif mode == 'f':
+#     path = input("Enter file path to .wav file:")
+#     raw_text,duration = transcribe_file(path)
