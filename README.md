@@ -419,18 +419,18 @@ Carys Williams average speech rate: 1.82 words/second
 
 ---
 
-## 9. Complexity Discussion
+## 10. Complexity Discussion
 
 The following tables show complexity estimations generated directly from the `complexity_report_generator.py` of the **Team Pipeline** source code.
 
-### 9.1. Parameter Legend for Analytical Bounds
+### 10.1. Parameter Legend for Analytical Bounds
 
 - $T$: Physical runtime duration of active audio recording streams.
 - $N$: Total row records processed inside the pipeline log sheets ($N = 30$ baseline lines).
 - $M$: Text statement sizes matching the maximum length of characters per conversational row block.
 - $S$: Quantifiable counts of distinct speaking team members tracked in internal lookups ($S \le N$; for Team Pipeline, $S = 6$).
 
-### 9.2. Component Master Metrics Matrix
+### 10.2. Component Master Metrics Matrix
 
 | Target Source File          | Function Signatures Detected                                                                       | Max Loop Depth | Estimated Time Complexity | Estimated Space Complexity | Core Structural Purpose                                                                            |
 | :-------------------------- | :------------------------------------------------------------------------------------------------- | :------------: | :-----------------------: | :------------------------: | :------------------------------------------------------------------------------------------------- |
@@ -441,7 +441,7 @@ The following tables show complexity estimations generated directly from the `co
 
 ---
 
-### 9.3. Comprehensive Function-Level Profiling Breakdown
+### 10.3. Comprehensive Function-Level Profiling Breakdown
 
 | Source File Component           | Block Name / Scope Type     | Nested Loop Depth | Est. Time Complexity | Est. Space Complexity | Structural Elements Detected (AST Nodes)                               |
 | :------------------------------ | :-------------------------- | :---------------: | :------------------: | :-------------------: | :--------------------------------------------------------------------- |
