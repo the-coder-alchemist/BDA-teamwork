@@ -18,6 +18,7 @@ Outputs:
 """
 # In Python, from __future__ import ... is a special directive that tells the Python interpreter to use a feature that is planned to become the standard default in a later version of the language.
 # Specifically, from __future__ import annotations changes how Python handles type hints (type annotations).
+# This line MUST be at the very top of the python file i.e. all other code below it
 
 The Problem It Solves: Forward References
 By default, Python evaluates type hints at runtime when the module is imported. This creates a classic "chicken-and-egg" problem called a forward reference.
@@ -40,12 +41,13 @@ __assignment__ = "Assignment 1 - Startup Meeting Speech Analytics"
 import ast
 import csv
 import importlib.util
-import multiprocessing as mp
 import os
 from pathlib import Path
 import sys
 import traceback
 from typing import Iterable
+# run multiple tasks completely in parallel across multiple CPU cores with multiprocesing
+import multiprocessing as mp
 
 # Kept self-analysis out of this list to eliminate any recursion risk
 TARGET_FILES = [
@@ -53,7 +55,6 @@ TARGET_FILES = [
     "csv_validation.py",
     "feature_enrichement.py",
     "gemini_vosk.py",
-    "pipeline_unit_testing.py",
 ]
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -278,8 +279,8 @@ class ScopeComplexityVisitor(ast.NodeVisitor):
 
         Returns:
             A tuple containing:
-                - time_complexity (e.g., "O(n^2)")
-                - space_complexity (e.g., "O(n)")
+                - time_complexity (e.g., "O(N^2)")
+                - space_complexity (e.g., "O(N)")
                 - confidence_level ("Low-Medium", "Medium", "Medium-High")
                 - compiled_notes_string
         """
@@ -287,25 +288,25 @@ class ScopeComplexityVisitor(ast.NodeVisitor):
             time = "Unbounded / event-driven until user interrupt or quit"
             confidence = "Medium"
         elif self.sort_calls and self.max_loop_depth >= 1:
-            time = "O(n log n) or higher, depending on looped sort input"
+            time = "O(N log N) or higher, depending on looped sort input"
             confidence = "Low-Medium"
         elif self.max_loop_depth >= 3:
-            time = "O(n^3)"
+            time = "O(N^3)"
             confidence = "Low-Medium"
         elif self.max_loop_depth == 2:
-            time = "O(n^2)"
+            time = "O(N^2)"
             confidence = "Medium"
         elif self.max_loop_depth == 1 or self.comprehensions:
-            time = "O(n)"
+            time = "O(N)"
             confidence = "Medium-High"
         else:
             time = "O(1)"
             confidence = "Medium"
 
         if self.string_accumulation and self.has_unbounded_loop:
-            space = "O(n), grows with accumulated transcript/text"
+            space = "O(N), grows with accumulated transcript/text"
         elif self.collections_allocated or self.file_or_dataframe_read or self.string_accumulation:
-            space = "O(n)"
+            space = "O(N)"
         else:
             space = "O(1)"
 
@@ -315,7 +316,7 @@ class ScopeComplexityVisitor(ast.NodeVisitor):
         if self.external_api_or_io:
             notes.append("Runtime includes external API, audio, model, or device I/O latency that Big-O does not capture.")
         if self.file_or_dataframe_read:
-            notes.append("n generally means rows/items read from the CSV or dataframe.")
+            notes.append("N generally means rows/items read from the CSV or dataframe.")
         if self.max_loop_depth == 2:
             notes.append("Nested loops dominate the estimate.")
         if self.string_accumulation:
@@ -425,7 +426,7 @@ def write_report(path: Path, rows: list[dict[str, str]]) -> Path:
 def main() -> None:
     """Orchestrates loop pipeline execution over all identified source targets.
 
-    Dispatches import processes, fires AST heuristic evaluations, and saves 
+    Dispatches import processes, fires AST (Abstract Syntax Tree) heuristic evaluations, and saves 
     individual validation outputs inside the local file environment.
     """
     print(f"Writing reports to: {OUTPUT_DIR}")
