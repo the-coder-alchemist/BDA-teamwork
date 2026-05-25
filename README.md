@@ -285,7 +285,7 @@ BDA-teamwork/
 
 The pipeline operates in five stages.
 
-### Stage 1 and 2: Record and Correct (`gemini_vosk.py`)
+### Stage 1 and 2: Record and transcribe speech & Correct the Transcript With AI (`gemini_vosk.py`)
 
 Records each speaker turn from the microphone, transcribes it offline with Vosk, then submits every raw transcript to Gemini in a single batch for spelling, punctuation, and casing correction.
 
@@ -314,7 +314,7 @@ Example after Gemini correction:
 | `2026-05-10T13:01:44.795188` | Mei Len Vorkel     | `we definitely need of back and specialist if we plan on horizontal scaling by careful`            | `We definitely need a backend specialist if we plan on horizontal scaling. But be careful`             | `8.33`         |
 | `2026-05-10T13:02:07.814951` | Samuel Weldemariam | `if we hire know i can start building the brand story around on new speed and security focus`      | `If we hire now, I can start building the brand story around our new speed and security focus`         | `8.96`         |
 
-### Stage 3: Enrich (`feature_enrichement.py`)
+### Stage 3: Enrich the Dataset With Python (`feature_enrichement.py`)
 
 Adds five derived columns to the raw CSV using pure Python (no AI involvement). Reads from `group_transcript.csv` and writes `group_transcript_enriched.csv`.
 
@@ -333,7 +333,7 @@ python feature_enrichement.py
 > [!NOTE]
 > The assignment brief specifies slightly different column names (`question_flag`, `num_words`, `speaker_turn_id`). The implementation uses the names listed above. Validation and analytics both read the implementation names.
 
-### Stage 4: Validate (`csv_validation.py`)
+### Stage 4: Validate the CSV (`csv_validation.py`)
 
 Reads `group_transcript_enriched.csv` and verifies every row:
 
@@ -362,9 +362,9 @@ Validation passed!
 All 30 rows are valid.
 ```
 
-### Stage 5: Analytics (`analytics_stats_output.py`)
+### Stage 5: Analyse the Dataset (`analytics_stats_output.py`)
 
-Aggregates per-speaker statistics and prints a summary report. The ranking of the top five speakers by total speaking time is produced by a hand-written bubble sort applied to a list of `(speaker, time)` tuples.
+Aggregates per-speaker statistics and prints a summary report. The ranking of the top five unique speakers by total speaking time is produced by a custom bubble sort applied to a list of `(speaker, time)` tuples.
 
 ```bash
 python analytics_stats_output.py
