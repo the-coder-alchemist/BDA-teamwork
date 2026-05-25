@@ -6,7 +6,7 @@
 
 This repository contains a data analytics pipeline designed for team meeting speech processing. The application records microphone audio during real-time conversations, streams transcription tasks through an open-source speech-to-text model (Vosk), cleans the resulting transcript via an LLM (Gemini), calculates statistics with native Python for each speaker, validates the dataset against a schema, and prints a finalised analytics report.
 
-The architecture is designed so that any user can clone this repository, install the required libraries, record their own meeting, and produce a validated, enriched CSV together with a summary report.
+The architecture is designed so that any user with basic Python and GitHub knowledge can clone this repository, install the required libraries, record their own meeting, and produce a validated, enriched CSV together with a summary report.
 
 ---
 
@@ -291,6 +291,9 @@ The pipeline operates in five stages.
 
 Records each speaker turn from the microphone, transcribes it offline with Vosk, then submits every raw transcript to Gemini in a single batch for spelling, punctuation, and casing correction.
 
+> [!NOTE]
+> This implementation requires the person running the code to start the recording via the console.
+
 ```bash
 python gemini_vosk.py
 ```
@@ -407,50 +410,7 @@ Carys Williams average speech rate: 1.82 words/second
 
 ---
 
-## 10. Test Suite (`pipeline_unit_testing.py`)
-
-Automated tests for the pipeline. Uses `unittest`, together with `unittest.mock.patch` and `io.StringIO`, to supply mocked CSV data without writing to disk.
-
-```bash
-python pipeline_unit_testing.py
-```
-
-The suite includes the following tests:
-
-- **`test_validate_timestamp_formats`** — Confirms that ISO timestamps pass validation and that malformed values fail with an informative message.
-- **`test_validate_boolean_formats`** — Confirms that `"TRUE"`, `"false"`, and the native `True` are accepted, and that `"Yes"` is rejected.
-- **`test_numeric_positive_boundaries`** — Verifies boundary cases: a positive value passes; `0` and negative values fail (strict greater-than); non-numeric input fails with a distinct error message.
-- **`test_feature_enrichment_logic`** — Patches `builtins.open` and verifies that the new columns appear, that `num_words / time_taken_sec` is computed correctly, and that the per-speaker counter increments as expected. Triggers `feature_enrichement` via an `importlib.reload`, since the enrichment runs as a top-level script body rather than inside a callable function.
-- **`test_analytics_data_reporting`** — Patches `builtins.open` and `sys.stdout`, runs the analytics function, and asserts that the report contains the expected aggregates in the correct sort order produced by the bubble-sort implementation.
-
-A successful run produces a custom report:
-
-```text
-================================================================================
-                    PIPELINE INTEGRITY & ANALYTICS REPORT
-================================================================================
-Total Tests Executed: 5
-Successful Passes   : 5
-Failures / Crashes  : 0
---------------------------------------------------------------------------------
-TEST METHOD NAME                    | TARGET SOURCE FILE        | VERIFICATION VERDICT
---------------------------------------------------------------------------------
-test_analytics_data_reporting       | analytics_stats_output.py | PASS (✓)
-  └─ Objective: Verify bubble-sorting metrics and text aggregation output.
-test_feature_enrichment_logic       | feature_enrichement.py    | PASS (✓)
-  └─ Objective: Test feature enrichment equations and row modification.
-test_numeric_positive_boundaries    | csv_validation.py         | PASS (✓)
-  └─ Objective: Verify numeric boundaries (> 0 constraint).
-test_validate_boolean_formats       | csv_validation.py         | PASS (✓)
-  └─ Objective: Ensure boolean validations cleanly capture various cases.
-test_validate_timestamp_formats     | csv_validation.py         | PASS (✓)
-  └─ Objective: Ensure ISO timestamps pass and malformed ones fail.
-================================================================================
-```
-
----
-
-## 11. Time and Space Complexity Analysis
+## 10. Time and Space Complexity Analysis
 
 This section documents the complexity of every public function in the pipeline as implemented in this repository.
 
@@ -466,12 +426,8 @@ This section documents the complexity of every public function in the pipeline a
 | `W`    | Total transcribed character count from the live stream                |
 | `R`    | Length of the response returned by the Gemini API                     |
 | `M`    | Number of recordings made in a single `gemini_vosk.main()` session    |
-| `t`    | Number of test methods in the unit-test suite                         |
-| `m`    | Number of rows in mocked CSV strings inside tests                     |
-| `o`    | Size of captured stdout during a test                                 |
-| `P`    | Source-file size of a module being reloaded (`importlib.reload`)      |
 
-### 11.1 Meeting Analytics — `analytics_stats_output.py`
+### 10.1 Meeting Analytics — `analytics_stats_output.py`
 
 #### `analyze_meeting_data(file_path)`
 
@@ -483,9 +439,9 @@ Aggregates per-speaker statistics from an enriched transcript and prints a repor
   - **Sorting:** `O(S²)`. A hand-written nested-loop bubble sort ranks the `(speaker, time)` tuples in descending order so that the top five can be selected.
 - **Space:** `O(S)`. The five aggregate dictionaries plus the list of `(speaker, time)` tuples used for sorting all scale with the number of unique speakers. The file itself is streamed rather than loaded into memory.
 
-> **Practical impact:** For typical meetings `S` is small (under twenty speakers), so the quadratic sort is not a runtime concern. The linear file scan `O(N)` dominates the wall-clock cost in practice. A future refactor to `sorted(...)` would reduce the worst case to `O(S log S)` without changing observable output.
+> **Practical impact:** For typical meetings `S` is small (under twenty speakers), so the quadratic sort is not a runtime concern. The linear file scan `O(N)` dominates the time complexity cost in practice. A future refactor to `sorted(...)` would reduce the worst case to `O(S log S)` without changing observable output.
 
-### 11.2 CSV Validation — `csv_validation.py`
+### 10.2 CSV Validation — `csv_validation.py`
 
 #### `validate_timestamp(value, field_name, row_num)`
 
@@ -509,7 +465,7 @@ Applies the three helper functions to every row of the enriched CSV.
 - **Time:** `O(N)`. Six `O(1)` validations per row, repeated `N` times.
 - **Space:** `O(E)`. The `validation_errors` list accumulates at most six entries per row, resulting in `O(1)` space for a clean file and `O(N)` space if every field fails. The file itself is streamed.
 
-### 11.3 Feature Enrichment — `feature_enrichement.py`
+### 10.3 Feature Enrichment — `feature_enrichement.py`
 
 #### Main script execution
 
@@ -518,7 +474,7 @@ The enrichment logic runs at module top level rather than inside a callable func
 - **Time:** `O(N × L)`. The dominant per-row operations are `'?' in text` and `text.split()`, both of which scan the string in time proportional to its length. When utterances are short, `L` is effectively constant and the complexity reduces to `O(N)`.
 - **Space:** `O(S)`. The reader and writer process one row at a time; only the per-speaker `counter` dictionary grows with input size.
 
-### 11.4 Recording and Cleanup — `gemini_vosk.py`
+### 10.4 Recording and Cleanup — `gemini_vosk.py`
 
 #### `correct_all_text(texts)`
 
@@ -550,69 +506,33 @@ Drives the record-and-quit loop, then batch-corrects all captured transcripts.
 - **Time:** `O(M × T_record + N + L_total)`. The record loop iterates `M` times, each iteration consuming one recording's duration. After the loop, `pd.read_csv` is `O(N)`, `correct_all_text` is `O(L_total)`, splitting the numbered response from Gemini is `O(L_total)`, and `to_csv` is `O(N × k)` for some bounded row size `k`.
 - **Space:** `O(N × k)`. Unlike the streaming functions in other modules, this one loads the entire CSV into a Pandas DataFrame. This is the memory bottleneck of the pipeline; for very large transcripts, refactoring to a streaming update would be advisable.
 
-### 11.5 Test Harness — `pipeline_unit_testing.py`
+### 10.6 Summary Table
 
-#### `NonClosingStringIO.close()` and `force_close()`
+| Module                      | Function                    | Time                            | Space            |
+| --------------------------- | --------------------------- | ------------------------------- | ---------------- |
+| `analytics_stats_output.py` | `analyze_meeting_data`      | `O(N + S²)`                     | `O(S)`           |
+| `csv_validation.py`         | `validate_timestamp`        | `O(1)`                          | `O(1)`           |
+| `csv_validation.py`         | `validate_numeric_positive` | `O(1)`                          | `O(1)`           |
+| `csv_validation.py`         | `validate_boolean`          | `O(1)`                          | `O(1)`           |
+| `csv_validation.py`         | `validate_csv_file`         | `O(N)`                          | `O(E)`           |
+| `feature_enrichement.py`    | Top-level script execution  | `O(N × L)`                      | `O(S)`           |
+| `gemini_vosk.py`            | `correct_all_text`          | `O(L_total + R)`                | `O(L_total + R)` |
+| `gemini_vosk.py`            | `realtime_transcription`    | `O(d + L²)` worst case          | `O(d + L)`       |
+| `gemini_vosk.py`            | `save_to_csv`               | `O(1)`                          | `O(1)`           |
+| `gemini_vosk.py`            | `main`                      | `O(M × T_record + N + L_total)` | `O(N × k)`       |
 
-- **Time and Space:** `O(1)` each. The `close()` method intentionally performs no action so that `with` blocks in the code under test cannot discard the buffer; `force_close()` provides the manual cleanup path.
-
-#### `PipelineTestResult.__init__` and `addSuccess(test)`
-
-- **Time:** `O(1)` per call. Recording a success consists of a fixed-size dictionary lookup and a list append.
-- **Space:** `O(1)` per call. The `successes` list grows to `O(t)` over the course of a complete run.
-
-#### `TestPipeline` — validator tests
-
-The three csv_validation tests (`test_validate_timestamp_formats`, `test_validate_boolean_formats`, `test_numeric_positive_boundaries`) each execute a small number of `O(1)` calls against fixed input strings.
-
-- **Time:** `O(1)`. **Space:** `O(1)`.
-
-#### `TestPipeline.test_feature_enrichment_logic`
-
-Patches `builtins.open` with two `NonClosingStringIO` buffers, then reloads `feature_enrichement` so that its top-level enrichment code runs against the mocked files.
-
-- **Time:** `O(P + m × L)`. The `importlib.reload` operation incurs a one-time `O(P)` cost to re-parse and re-execute the module's source; the enrichment then runs in `O(m × L)` against the mocked rows.
-- **Space:** `O(m × L)`. Both mock buffers retain the CSV content in memory.
-
-#### `TestPipeline.test_analytics_data_reporting`
-
-Patches `builtins.open`, redirects `sys.stdout`, executes `analyze_meeting_data`, and asserts on the captured report.
-
-- **Time:** `O(m + S² + o)`. The analytics function dominates — its `O(S²)` bubble sort is the largest term for any non-trivial speaker count, although for the three-row mocked CSV used in the test it remains effectively constant. The substring `assertIn` checks against the captured output are `O(o)` each.
-- **Space:** `O(m × L + o)`. The mocked CSV and the captured stdout buffer are the two primary memory consumers.
-
-### 11.6 Summary Table
-
-| Module                      | Function                        | Time                            | Space             |
-| --------------------------- | ------------------------------- | ------------------------------- | ----------------- |
-| `analytics_stats_output.py` | `analyze_meeting_data`          | `O(N + S²)`                     | `O(S)`            |
-| `csv_validation.py`         | `validate_timestamp`            | `O(1)`                          | `O(1)`            |
-| `csv_validation.py`         | `validate_numeric_positive`     | `O(1)`                          | `O(1)`            |
-| `csv_validation.py`         | `validate_boolean`              | `O(1)`                          | `O(1)`            |
-| `csv_validation.py`         | `validate_csv_file`             | `O(N)`                          | `O(E)`            |
-| `feature_enrichement.py`    | Top-level script execution      | `O(N × L)`                      | `O(S)`            |
-| `gemini_vosk.py`            | `correct_all_text`              | `O(L_total + R)`                | `O(L_total + R)`  |
-| `gemini_vosk.py`            | `realtime_transcription`        | `O(d + L²)` worst case          | `O(d + L)`        |
-| `gemini_vosk.py`            | `save_to_csv`                   | `O(1)`                          | `O(1)`            |
-| `gemini_vosk.py`            | `main`                          | `O(M × T_record + N + L_total)` | `O(N × k)`        |
-| `pipeline_unit_testing.py`  | `NonClosingStringIO.*`          | `O(1)`                          | `O(1)`            |
-| `pipeline_unit_testing.py`  | `PipelineTestResult.*`          | `O(1)` per call                 | `O(t)` cumulative |
-| `pipeline_unit_testing.py`  | validator tests (each)          | `O(1)`                          | `O(1)`            |
-| `pipeline_unit_testing.py`  | `test_feature_enrichment_logic` | `O(P + m × L)`                  | `O(m × L)`        |
-| `pipeline_unit_testing.py`  | `test_analytics_data_reporting` | `O(m + S² + o)`                 | `O(m × L + o)`    |
-
-### 11.7 Key Observations
+### 10.7 Key Observations
 
 The pipeline is **linear in the number of utterances** for every stage that interacts with the CSV directly. Two implementations contain non-linear cost paths:
 
-1. **Bubble sort in `analyze_meeting_data`** (`O(S²)`). The hand-written nested-loop sort is asymptotically slower than necessary, but `S` is typically below twenty for meeting data so the practical runtime impact is negligible. Substituting Python's built-in `sorted(...)` would reduce the cost to `O(S log S)`.
+1. **Bubble sort in `analyze_meeting_data`** (`O(S²)`). The custom nested-loop Bubble sort is asymptotically slower than necessary, but `S` is typically below twenty for meeting data so the practical runtime impact is negligible. Substituting Python's built-in `sorted(...)` would reduce the cost to `O(S log S)`.
 2. **String concatenation in `realtime_transcription`** (`O(L²)` worst case). The use of `full_text += text + " "` within the recording loop creates quadratic worst-case behaviour due to Python string immutability. For typical recording lengths the cost remains acceptable, but very long recordings would benefit from a list-and-join refactor.
 
 The memory bottleneck is `gemini_vosk.main()`, which loads the entire CSV into a Pandas DataFrame; every other stage processes data row-by-row.
 
 ---
 
-## 12. Files Produced
+## 11. Files Produced
 
 | File                            | Produced by                                    | Purpose                              |
 | ------------------------------- | ---------------------------------------------- | ------------------------------------ |
@@ -620,18 +540,46 @@ The memory bottleneck is `gemini_vosk.main()`, which loads the entire CSV into a
 | `group_transcript_enriched.csv` | `feature_enrichement.py`                       | Adds the five derived columns        |
 | Console report                  | `csv_validation.py`                            | Pass or fail summary                 |
 | Console report                  | `analytics_stats_output.py`                    | Per-speaker meeting analytics        |
-| Console report                  | `pipeline_unit_testing.py`                     | Per-test verdict table               |
 
 ---
 
-## 13. Troubleshooting
+## 8. Algorithmic Complexity Registry (AST Profile Tables)
 
-| Symptom                                       | Likely cause                                                | Resolution                                                                                                                        |
-| --------------------------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `ModuleNotFoundError: No module named 'vosk'` | `.venv` is not activated, or `pip install` has not been run | Activate `.venv` (section 7) and re-run `pip install -r requirements.txt`                                                         |
-| `KeyError: 'GEMINI_API_KEY'`                  | Environment variable is not set in the current shell        | Re-run the `export`, `$env:`, or `set` command from section 5. New VS Code terminals do not inherit unsaved environment variables |
-| PowerShell refuses to execute `Activate.ps1`  | Execution policy restriction                                | Run `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned` once, then restart the terminal                        |
-| `python: command not found` on macOS or Linux | Only `python3` is installed                                 | Use `python3` instead of `python`, or define an alias `python=python3` in the shell configuration file                            |
-| HTTP status `429` returned from Gemini        | Free-tier rate limit exceeded                               | Wait one minute, then retry. Consider increasing the batch size per call                                                          |
-| CSV displays incorrectly when opened in Excel | Locale uses `;` as the field separator                      | Use Data → "From Text/CSV" and explicitly select comma                                                                            |
-| `OSError: [Errno -9986]` from `sounddevice`   | macOS has not granted microphone permission                 | System Settings → Privacy & Security → Microphone → enable the relevant terminal application or VS Code                           |
+The following tables show the static structural footprints and heuristic complexity estimations generated directly from the Abstract Syntax Tree (AST) scan of the **Team Pipeline** source code.
+
+### 8.1. Parameter Legend for Analytical Bounds
+
+- $T$: Physical runtime duration of active audio recording streams.
+- $N$: Total row records processed inside the pipeline log sheets ($N = 30$ baseline lines).
+- $M$: Text statement sizes matching the maximum length of characters per conversational row block.
+- $U$: Quantifiable counts of distinct speaking team members tracked in internal lookups ($U \le N$; for Team Pipeline, $U = 6$).
+
+### 8.2. Component Master Metrics Matrix
+
+| Target Source File          | Function Signatures Detected                                                                       | Max Loop Depth | Estimated Time Complexity | Estimated Space Complexity | Core Structural Purpose                                                                            |
+| :-------------------------- | :------------------------------------------------------------------------------------------------- | :------------: | :-----------------------: | :------------------------: | :------------------------------------------------------------------------------------------------- |
+| `gemini_vosk.py`            | `correct_all_text`, `realtime_transcription`, `save_to_csv`, `main`                                |       2        |    $O(T + N \cdot M)$     |       $O(N \cdot M)$       | Audio streaming capture loop, thread-safe queue handling, and batch cloud LLM semantic formatting. |
+| `feature_enrichement.py`    | _(Global Script Block Layout)_                                                                     |       1        |      $O(N \cdot M)$       |           $O(U)$           | Streaming row-by-row structural string inspections and historical participant counts tracking.     |
+| `csv_validation.py`         | `validate_timestamp`, `validate_numeric_positive`, `validate_boolean`, `validate_csv_file`, `main` |       1        |          $O(N)$           |           $O(1)$           | Validation bounds check, boundary constraint enforcement, and strict schema validation scanning.   |
+| `analytics_stats_output.py` | `analyze_meeting_data`, `main`                                                                     |       2        |   $O(N \cdot M + U^2)$    |           $O(U)$           | Aggregated dictionary accumulation loops and unique speaker tracking via a custom Bubble Sort.     |
+
+---
+
+### 8.3. Comprehensive Function-Level Profiling Breakdown
+
+| Source File Component           | Block Name / Scope Type     | Nested Loop Depth | Est. Time Complexity | Est. Space Complexity | Structural Elements Detected (AST Nodes)                               |
+| :------------------------------ | :-------------------------- | :---------------: | :------------------: | :-------------------: | :--------------------------------------------------------------------- |
+| **`gemini_vosk.py`**            | `correct_all_text`          |         0         |    $O(N \cdot M)$    |    $O(N \cdot M)$     | 1 x API Client Call, 1 x List Comprehension Join                       |
+|                                 | `realtime_transcription`    |         1         |        $O(T)$        |        $O(M)$         | 1 x Threaded Queue Loop, 1 x Active Input Audio Stream                 |
+|                                 | `save_to_csv`               |         0         |        $O(1)$        |        $O(1)$         | 1 x File IO context wrapper, 1 x CSV DictWriter row flush              |
+|                                 | `main`                      |         1         |        $O(N)$        |    $O(N \cdot M)$     | 1 x Interactive text command menu loop, 1 x Pandas IO sync             |
+| **`feature_enrichement.py`**    | `global_stream`             |         1         |    $O(N \cdot M)$    |        $O(U)$         | 1 x Row Iterator, 3 x String Inspectors, 1 x Accumulator Map           |
+| **`csv_validation.py`**         | `validate_timestamp`        |         0         |        $O(1)$        |        $O(1)$         | 1 x Try-Except handler, 1 x Datetime Isoformat verification            |
+|                                 | `validate_numeric_positive` |         0         |        $O(1)$        |        $O(1)$         | 1 x Conditional Type check, 1 x Positive value comparison              |
+|                                 | `validate_boolean`          |         0         |        $O(1)$        |        $O(1)$         | 1 x Primitive Type verification, 1 x Explicit upper string token parse |
+|                                 | `validate_csv_file`         |         1         |        $O(N)$        |        $O(1)$         | 1 x Sequenced file reader loop, 6 x Inline checker routing             |
+|                                 | `main`                      |         0         |        $O(1)$        |        $O(1)$         | 1 x File path string routing, 1 x Executable runner redirect           |
+| **`analytics_stats_output.py`** | `analyze_meeting_data`      |         2         | $O(N \cdot M + U^2)$ |        $O(U)$         | 1 x Read loop, 1 x Custom nested loop Bubble Sort ($O(U^2)$)           |
+|                                 | `main`                      |         0         |        $O(1)$        |        $O(1)$         | 1 x Production path argument setup, 1 x Analysis suite trigger         |
+
+---
