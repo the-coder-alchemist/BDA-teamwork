@@ -1,7 +1,7 @@
 source_file,import_status,import_error,scope_type,scope_name,line_start,line_end,time_complexity_estimate,space_complexity_estimate,dominant_operations,confidence,notes
-csv_validation.py,success,,module,<module>,1,246,O(1),O(n),,Medium,
+csv_validation.py,success,,module,<module>,1,246,O(1),O(N),,Medium,
 csv_validation.py,success,,function,validate_timestamp,37,64,O(1),O(1),,Medium,
 csv_validation.py,success,,function,validate_numeric_positive,67,96,O(1),O(1),,Medium,
-csv_validation.py,success,,function,validate_boolean,99,129,O(1),O(n),,Medium,
-csv_validation.py,success,,function,validate_csv_file,132,222,O(n),O(n),file/dataframe read at line 165; for-loop at line 169; possible accumulation with += at line 170; for-loop at line 212,Medium-High,n generally means rows/items read from the CSV or dataframe. Repeated += accumulation may copy growing strings depending on runtime behaviour.
+csv_validation.py,success,,function,validate_boolean,99,129,O(1),O(N),,Medium,
+csv_validation.py,success,,function,validate_csv_file,132,222,O(N),O(N),file/dataframe read at line 165; for-loop at line 169; possible accumulation with += at line 170; for-loop at line 212,Medium-High,N generally means rows/items read from the CSV or dataframe. Repeated += accumulation may copy growing strings depending on runtime behaviour.
 csv_validation.py,success,,function,main,226,242,O(1),O(1),,Medium,
