@@ -421,25 +421,25 @@ Carys Williams average speech rate: 1.82 words/second
 
 ---
 
-## 11. Algorithmic Complexity Registry (AST Profile Tables)
+## 11. Complexity Discussion
 
-The following tables show the static structural footprints and heuristic complexity estimations generated directly from the Abstract Syntax Tree (AST) scan of the **Team Pipeline** source code.
+The following tables show complexity estimations generated directly from the `complexity_report_generator.py` of the **Team Pipeline** source code.
 
 ### 11.1. Parameter Legend for Analytical Bounds
 
 - $T$: Physical runtime duration of active audio recording streams.
 - $N$: Total row records processed inside the pipeline log sheets ($N = 30$ baseline lines).
 - $M$: Text statement sizes matching the maximum length of characters per conversational row block.
-- $U$: Quantifiable counts of distinct speaking team members tracked in internal lookups ($U \le N$; for Team Pipeline, $U = 6$).
+- $S$: Quantifiable counts of distinct speaking team members tracked in internal lookups ($S \le N$; for Team Pipeline, $S = 6$).
 
 ### 8.2. Component Master Metrics Matrix
 
 | Target Source File          | Function Signatures Detected                                                                       | Max Loop Depth | Estimated Time Complexity | Estimated Space Complexity | Core Structural Purpose                                                                            |
 | :-------------------------- | :------------------------------------------------------------------------------------------------- | :------------: | :-----------------------: | :------------------------: | :------------------------------------------------------------------------------------------------- |
 | `gemini_vosk.py`            | `correct_all_text`, `realtime_transcription`, `save_to_csv`, `main`                                |       2        |    $O(T + N \cdot M)$     |       $O(N \cdot M)$       | Audio streaming capture loop, thread-safe queue handling, and batch cloud LLM semantic formatting. |
-| `feature_enrichement.py`    | _(Global Script Block Layout)_                                                                     |       1        |      $O(N \cdot M)$       |           $O(U)$           | Streaming row-by-row structural string inspections and historical participant counts tracking.     |
+| `feature_enrichement.py`    | _(Global Script Block Layout)_                                                                     |       1        |      $O(N \cdot M)$       |           $O(S)$           | Streaming row-by-row structural string inspections and historical participant counts tracking.     |
 | `csv_validation.py`         | `validate_timestamp`, `validate_numeric_positive`, `validate_boolean`, `validate_csv_file`, `main` |       1        |          $O(N)$           |           $O(1)$           | Validation bounds check, boundary constraint enforcement, and strict schema validation scanning.   |
-| `analytics_stats_output.py` | `analyze_meeting_data`, `main`                                                                     |       2        |   $O(N \cdot M + U^2)$    |           $O(U)$           | Aggregated dictionary accumulation loops and unique speaker tracking via a custom Bubble Sort.     |
+| `analytics_stats_output.py` | `analyze_meeting_data`, `main`                                                                     |       2        |   $O(N \cdot M + S^2)$    |           $O(S)$           | Aggregated dictionary accumulation loops and unique speaker tracking via a custom Bubble Sort.     |
 
 ---
 
@@ -451,13 +451,13 @@ The following tables show the static structural footprints and heuristic complex
 |                                 | `realtime_transcription`    |         1         |        $O(T)$        |        $O(M)$         | 1 x Threaded Queue Loop, 1 x Active Input Audio Stream                 |
 |                                 | `save_to_csv`               |         0         |        $O(1)$        |        $O(1)$         | 1 x File IO context wrapper, 1 x CSV DictWriter row flush              |
 |                                 | `main`                      |         1         |        $O(N)$        |    $O(N \cdot M)$     | 1 x Interactive text command menu loop, 1 x Pandas IO sync             |
-| **`feature_enrichement.py`**    | `global_stream`             |         1         |    $O(N \cdot M)$    |        $O(U)$         | 1 x Row Iterator, 3 x String Inspectors, 1 x Accumulator Map           |
+| **`feature_enrichement.py`**    | `global_stream`             |         1         |    $O(N \cdot M)$    |        $O(S)$         | 1 x Row Iterator, 3 x String Inspectors, 1 x Accumulator Map           |
 | **`csv_validation.py`**         | `validate_timestamp`        |         0         |        $O(1)$        |        $O(1)$         | 1 x Try-Except handler, 1 x Datetime Isoformat verification            |
 |                                 | `validate_numeric_positive` |         0         |        $O(1)$        |        $O(1)$         | 1 x Conditional Type check, 1 x Positive value comparison              |
 |                                 | `validate_boolean`          |         0         |        $O(1)$        |        $O(1)$         | 1 x Primitive Type verification, 1 x Explicit upper string token parse |
 |                                 | `validate_csv_file`         |         1         |        $O(N)$        |        $O(1)$         | 1 x Sequenced file reader loop, 6 x Inline checker routing             |
 |                                 | `main`                      |         0         |        $O(1)$        |        $O(1)$         | 1 x File path string routing, 1 x Executable runner redirect           |
-| **`analytics_stats_output.py`** | `analyze_meeting_data`      |         2         | $O(N \cdot M + U^2)$ |        $O(U)$         | 1 x Read loop, 1 x Custom nested loop Bubble Sort ($O(U^2)$)           |
+| **`analytics_stats_output.py`** | `analyze_meeting_data`      |         2         | $O(N \cdot M + S^2)$ |        $O(U)$         | 1 x Read loop, 1 x Custom nested loop Bubble Sort ($O(S^2)$)           |
 |                                 | `main`                      |         0         |        $O(1)$        |        $O(1)$         | 1 x Production path argument setup, 1 x Analysis suite trigger         |
 
 ---
