@@ -31,6 +31,17 @@ Before proceeding, this section provides a reference table for translating comma
 | Delete a file                 | `rm file.csv`                                 | `Remove-Item file.csv` or `del file.csv`      | `del file.csv`               |
 | Delete a folder               | `rm -r folder/`                               | `Remove-Item -Recurse folder`                 | `rmdir /s folder`            |
 
+### Core Concepts
+
+- **Python** — the programming language used throughout the project.
+- **Terminal / shell** — a text-based interface for executing commands. On macOS this is typically Terminal.app (running zsh); on Windows it is PowerShell, CMD, or the integrated terminal in VS Code.
+- **`cd`** — change directory (move into another folder). The command is identical across platforms.
+- **`pwd` / `Get-Location`** — display the current folder path.
+- **Virtual environment (`.venv`)** — an isolated Python installation for a specific project. Prevents one project's dependencies from interfering with another's installed packages.
+- **`pip`** — Python's package manager. Installs the libraries listed in `requirements.txt`.
+- **`requirements.txt`** — the list of Python packages this project depends on. Any user can recreate the same environment with `pip install -r requirements.txt`.
+- **README.md** — this file. Markdown syntax reference: <https://www.markdownguide.org/basic-syntax/>.
+
 ### Common pitfalls
 
 **bash versus zsh on macOS.** macOS has used `zsh` as the default shell since macOS Catalina (2019). The majority of commands in this README operate identically in both shells, but if external documentation references `~/.bashrc`, the zsh equivalent on a modern macOS installation is `~/.zshrc`.
@@ -161,20 +172,7 @@ If the output indicates `Set: True` and a non-zero length, the configuration is 
 
 ---
 
-## 6. Core Concepts
-
-- **Python** — the programming language used throughout the project.
-- **Terminal / shell** — a text-based interface for executing commands. On macOS this is typically Terminal.app (running zsh); on Windows it is PowerShell, CMD, or the integrated terminal in VS Code.
-- **`cd`** — change directory (move into another folder). The command is identical across platforms.
-- **`pwd` / `Get-Location`** — display the current folder path.
-- **Virtual environment (`.venv`)** — an isolated Python installation for a specific project. Prevents one project's dependencies from interfering with another's installed packages.
-- **`pip`** — Python's package manager. Installs the libraries listed in `requirements.txt`.
-- **`requirements.txt`** — the list of Python packages this project depends on. Any user can recreate the same environment with `pip install -r requirements.txt`.
-- **README.md** — this file. Markdown syntax reference: <https://www.markdownguide.org/basic-syntax/>.
-
----
-
-## 7. Create and Activate a Virtual Environment
+## 6. Create and Activate a Virtual Environment
 
 > [!TIP]
 > Ensure the working directory is the project folder (`cd BDA-teamwork`) before creating the virtual environment.
@@ -216,7 +214,7 @@ This command operates identically across every shell.
 
 ---
 
-## 8. Install Dependencies
+## 7. Install Dependencies
 
 With `.venv` activated:
 
@@ -283,7 +281,7 @@ BDA-teamwork/
 
 ---
 
-## 9. Pipeline Execution Steps
+## 8. Pipeline Execution Steps
 
 The pipeline operates in five stages.
 
@@ -410,7 +408,7 @@ Carys Williams average speech rate: 1.82 words/second
 
 ---
 
-## 10. Files Produced
+## 9. Files Produced
 
 | File                            | Produced by                                    | Purpose                              |
 | ------------------------------- | ---------------------------------------------- | ------------------------------------ |
@@ -421,18 +419,18 @@ Carys Williams average speech rate: 1.82 words/second
 
 ---
 
-## 11. Complexity Discussion
+## 9. Complexity Discussion
 
 The following tables show complexity estimations generated directly from the `complexity_report_generator.py` of the **Team Pipeline** source code.
 
-### 11.1. Parameter Legend for Analytical Bounds
+### 9.1. Parameter Legend for Analytical Bounds
 
 - $T$: Physical runtime duration of active audio recording streams.
 - $N$: Total row records processed inside the pipeline log sheets ($N = 30$ baseline lines).
 - $M$: Text statement sizes matching the maximum length of characters per conversational row block.
 - $S$: Quantifiable counts of distinct speaking team members tracked in internal lookups ($S \le N$; for Team Pipeline, $S = 6$).
 
-### 8.2. Component Master Metrics Matrix
+### 9.2. Component Master Metrics Matrix
 
 | Target Source File          | Function Signatures Detected                                                                       | Max Loop Depth | Estimated Time Complexity | Estimated Space Complexity | Core Structural Purpose                                                                            |
 | :-------------------------- | :------------------------------------------------------------------------------------------------- | :------------: | :-----------------------: | :------------------------: | :------------------------------------------------------------------------------------------------- |
@@ -443,7 +441,7 @@ The following tables show complexity estimations generated directly from the `co
 
 ---
 
-### 11.3. Comprehensive Function-Level Profiling Breakdown
+### 9.3. Comprehensive Function-Level Profiling Breakdown
 
 | Source File Component           | Block Name / Scope Type     | Nested Loop Depth | Est. Time Complexity | Est. Space Complexity | Structural Elements Detected (AST Nodes)                               |
 | :------------------------------ | :-------------------------- | :---------------: | :------------------: | :-------------------: | :--------------------------------------------------------------------- |
@@ -457,7 +455,7 @@ The following tables show complexity estimations generated directly from the `co
 |                                 | `validate_boolean`          |         0         |        $O(1)$        |        $O(1)$         | 1 x Primitive Type verification, 1 x Explicit upper string token parse |
 |                                 | `validate_csv_file`         |         1         |        $O(N)$        |        $O(1)$         | 1 x Sequenced file reader loop, 6 x Inline checker routing             |
 |                                 | `main`                      |         0         |        $O(1)$        |        $O(1)$         | 1 x File path string routing, 1 x Executable runner redirect           |
-| **`analytics_stats_output.py`** | `analyze_meeting_data`      |         2         | $O(N \cdot M + S^2)$ |        $O(U)$         | 1 x Read loop, 1 x Custom nested loop Bubble Sort ($O(S^2)$)           |
+| **`analytics_stats_output.py`** | `analyze_meeting_data`      |         2         | $O(N \cdot M + S^2)$ |        $O(S)$         | 1 x Read loop, 1 x Custom nested loop Bubble Sort ( $O(S^2)$ )         |
 |                                 | `main`                      |         0         |        $O(1)$        |        $O(1)$         | 1 x Production path argument setup, 1 x Analysis suite trigger         |
 
 ---
