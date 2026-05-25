@@ -410,129 +410,7 @@ Carys Williams average speech rate: 1.82 words/second
 
 ---
 
-## 10. Time and Space Complexity Analysis
-
-This section documents the complexity of every public function in the pipeline as implemented in this repository.
-
-### Notation
-
-| Symbol | Meaning                                                               |
-| ------ | --------------------------------------------------------------------- |
-| `N`    | Number of rows (utterances) in the CSV                                |
-| `S`    | Number of unique speakers (always `S ≤ N`)                            |
-| `L`    | Average character length of the `text` field per row                  |
-| `E`    | Number of validation errors recorded (worst case `6N`, best case `0`) |
-| `T`    | Total duration in seconds of a live audio recording                   |
-| `W`    | Total transcribed character count from the live stream                |
-| `R`    | Length of the response returned by the Gemini API                     |
-| `M`    | Number of recordings made in a single `gemini_vosk.main()` session    |
-
-### 10.1 Meeting Analytics — `analytics_stats_output.py`
-
-#### `analyze_meeting_data(file_path)`
-
-Aggregates per-speaker statistics from an enriched transcript and prints a report.
-
-- **Time:** `O(N + S²)`.
-  - **Streaming pass over the file:** `O(N)`. Each row triggers a constant number of `O(1)` dictionary updates (word totals, question totals, speaking time, speech-rate running totals).
-  - **Aggregation across speakers:** `O(S)`. Identifying the most and least words, the most-questions speaker, and the total and average time each requires iterating over the speaker dictionaries.
-  - **Sorting:** `O(S²)`. A hand-written nested-loop bubble sort ranks the `(speaker, time)` tuples in descending order so that the top five can be selected.
-- **Space:** `O(S)`. The five aggregate dictionaries plus the list of `(speaker, time)` tuples used for sorting all scale with the number of unique speakers. The file itself is streamed rather than loaded into memory.
-
-> **Practical impact:** For typical meetings `S` is small (under twenty speakers), so the quadratic sort is not a runtime concern. The linear file scan `O(N)` dominates the time complexity cost in practice. A future refactor to `sorted(...)` would reduce the worst case to `O(S log S)` without changing observable output.
-
-### 10.2 CSV Validation — `csv_validation.py`
-
-#### `validate_timestamp(value, field_name, row_num)`
-
-- **Time:** `O(1)`. `datetime.fromisoformat` parses a fixed-format string in constant time.
-- **Space:** `O(1)`.
-
-#### `validate_numeric_positive(value, field_name, row_num)`
-
-- **Time:** `O(1)`. One `float()` cast and one comparison.
-- **Space:** `O(1)`.
-
-#### `validate_boolean(value, field_name, row_num)`
-
-- **Time:** `O(1)`. Two `isinstance` checks and a membership test against a 2-element list.
-- **Space:** `O(1)`.
-
-#### `validate_csv_file(file_path)`
-
-Applies the three helper functions to every row of the enriched CSV.
-
-- **Time:** `O(N)`. Six `O(1)` validations per row, repeated `N` times.
-- **Space:** `O(E)`. The `validation_errors` list accumulates at most six entries per row, resulting in `O(1)` space for a clean file and `O(N)` space if every field fails. The file itself is streamed.
-
-### 10.3 Feature Enrichment — `feature_enrichement.py`
-
-#### Main script execution
-
-The enrichment logic runs at module top level rather than inside a callable function; it executes as soon as the module is imported. The block opens both files, iterates through the input rows, derives the five new columns, and writes each enriched row to the output file.
-
-- **Time:** `O(N × L)`. The dominant per-row operations are `'?' in text` and `text.split()`, both of which scan the string in time proportional to its length. When utterances are short, `L` is effectively constant and the complexity reduces to `O(N)`.
-- **Space:** `O(S)`. The reader and writer process one row at a time; only the per-speaker `counter` dictionary grows with input size.
-
-### 10.4 Recording and Cleanup — `gemini_vosk.py`
-
-#### `correct_all_text(texts)`
-
-Bundles every raw transcript into a single Gemini API call.
-
-- **Time:** `O(L_total + R)`, where `L_total` is the combined length of all transcripts and `R` is the response length. Local work — constructing the numbered prompt and parsing the response — is linear in the input size. The API round-trip itself is network-bound and is excluded from the algorithmic analysis.
-- **Space:** `O(L_total + R)`. The numbered prompt and the response are held in memory concurrently.
-
-#### `realtime_transcription()`
-
-Records from the microphone until `Ctrl+C` is pressed, then returns the joined transcript.
-
-- **Time:** `O(d + L²)` in the worst case, where `d` is the number of audio blocks processed and `L` is the total transcribed length. Each block is processed by Vosk in constant time from the Python side. Text fragments are accumulated using `full_text += text + " "` within the loop. Because Python strings are immutable, each `+=` operation allocates a new string and copies the existing contents, giving quadratic worst-case cost in the total length. In practice the cost is closer to linear for short transcripts due to CPython implementation details, but the asymptotic worst case remains `O(L²)`.
-- **Space:** `O(d + L)`. The audio queue holds up to `d` pending blocks; the accumulated `full_text` string contains `L` characters in total.
-
-> **Practical impact:** For meetings consisting of short utterances the quadratic behaviour is rarely observed. For long, uninterrupted recordings, replacing `+=` with a list-and-join pattern would reduce the worst case to `O(L)` without affecting the returned string.
-
-#### `save_to_csv(data)`
-
-Appends a single row to the output CSV.
-
-- **Time:** `O(1)` (assuming a bounded row size).
-- **Space:** `O(1)`.
-
-#### `main()`
-
-Drives the record-and-quit loop, then batch-corrects all captured transcripts.
-
-- **Time:** `O(M × T_record + N + L_total)`. The record loop iterates `M` times, each iteration consuming one recording's duration. After the loop, `pd.read_csv` is `O(N)`, `correct_all_text` is `O(L_total)`, splitting the numbered response from Gemini is `O(L_total)`, and `to_csv` is `O(N × k)` for some bounded row size `k`.
-- **Space:** `O(N × k)`. Unlike the streaming functions in other modules, this one loads the entire CSV into a Pandas DataFrame. This is the memory bottleneck of the pipeline; for very large transcripts, refactoring to a streaming update would be advisable.
-
-### 10.6 Summary Table
-
-| Module                      | Function                    | Time                            | Space            |
-| --------------------------- | --------------------------- | ------------------------------- | ---------------- |
-| `analytics_stats_output.py` | `analyze_meeting_data`      | `O(N + S²)`                     | `O(S)`           |
-| `csv_validation.py`         | `validate_timestamp`        | `O(1)`                          | `O(1)`           |
-| `csv_validation.py`         | `validate_numeric_positive` | `O(1)`                          | `O(1)`           |
-| `csv_validation.py`         | `validate_boolean`          | `O(1)`                          | `O(1)`           |
-| `csv_validation.py`         | `validate_csv_file`         | `O(N)`                          | `O(E)`           |
-| `feature_enrichement.py`    | Top-level script execution  | `O(N × L)`                      | `O(S)`           |
-| `gemini_vosk.py`            | `correct_all_text`          | `O(L_total + R)`                | `O(L_total + R)` |
-| `gemini_vosk.py`            | `realtime_transcription`    | `O(d + L²)` worst case          | `O(d + L)`       |
-| `gemini_vosk.py`            | `save_to_csv`               | `O(1)`                          | `O(1)`           |
-| `gemini_vosk.py`            | `main`                      | `O(M × T_record + N + L_total)` | `O(N × k)`       |
-
-### 10.7 Key Observations
-
-The pipeline is **linear in the number of utterances** for every stage that interacts with the CSV directly. Two implementations contain non-linear cost paths:
-
-1. **Bubble sort in `analyze_meeting_data`** (`O(S²)`). The custom nested-loop Bubble sort is asymptotically slower than necessary, but `S` is typically below twenty for meeting data so the practical runtime impact is negligible. Substituting Python's built-in `sorted(...)` would reduce the cost to `O(S log S)`.
-2. **String concatenation in `realtime_transcription`** (`O(L²)` worst case). The use of `full_text += text + " "` within the recording loop creates quadratic worst-case behaviour due to Python string immutability. For typical recording lengths the cost remains acceptable, but very long recordings would benefit from a list-and-join refactor.
-
-The memory bottleneck is `gemini_vosk.main()`, which loads the entire CSV into a Pandas DataFrame; every other stage processes data row-by-row.
-
----
-
-## 11. Files Produced
+## 10. Files Produced
 
 | File                            | Produced by                                    | Purpose                              |
 | ------------------------------- | ---------------------------------------------- | ------------------------------------ |
@@ -543,11 +421,11 @@ The memory bottleneck is `gemini_vosk.main()`, which loads the entire CSV into a
 
 ---
 
-## 8. Algorithmic Complexity Registry (AST Profile Tables)
+## 11. Algorithmic Complexity Registry (AST Profile Tables)
 
 The following tables show the static structural footprints and heuristic complexity estimations generated directly from the Abstract Syntax Tree (AST) scan of the **Team Pipeline** source code.
 
-### 8.1. Parameter Legend for Analytical Bounds
+### 11.1. Parameter Legend for Analytical Bounds
 
 - $T$: Physical runtime duration of active audio recording streams.
 - $N$: Total row records processed inside the pipeline log sheets ($N = 30$ baseline lines).
@@ -565,7 +443,7 @@ The following tables show the static structural footprints and heuristic complex
 
 ---
 
-### 8.3. Comprehensive Function-Level Profiling Breakdown
+### 11.3. Comprehensive Function-Level Profiling Breakdown
 
 | Source File Component           | Block Name / Scope Type     | Nested Loop Depth | Est. Time Complexity | Est. Space Complexity | Structural Elements Detected (AST Nodes)                               |
 | :------------------------------ | :-------------------------- | :---------------: | :------------------: | :-------------------: | :--------------------------------------------------------------------- |
